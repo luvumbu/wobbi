@@ -189,6 +189,7 @@ export function generateSource(input, sources) {
     [`${name}.jsx`]: componentSource(config),
     [`${name}.css`]: componentStyles,
     'preset.js': configModule(config),
+    'custom-shape.js': `${cleanSource(sources.customShape)}\n`,
     'render-model.js': `${cleanSource(sources.renderModel)}\n`,
     'render-effects.js': `${cleanSource(sources.renderEffects)}\n`,
     'render.js': `${cleanSource(sources.render)}\n`,
@@ -289,6 +290,7 @@ export function generateVueSource(input, sources) {
     [`${name}.vue`]: vueComponentSource(config),
     [`${name}.css`]: componentStyles,
     'preset.js': configModule(config),
+    'custom-shape.js': `${cleanSource(sources.customShape)}\n`,
     'render-model.js': `${cleanSource(sources.renderModel)}\n`,
     'render-effects.js': `${cleanSource(sources.renderEffects)}\n`,
     'render.js': `${cleanSource(sources.render)}\n`,
@@ -472,6 +474,8 @@ window.WobbiConfig = { preset, resolveState };
 `;
   const rendererScript = `(() => {
 'use strict';
+
+${stripModuleSyntax(cleanSource(sources.customShape))}
 
 ${stripModuleSyntax(cleanSource(sources.renderModel))}
 

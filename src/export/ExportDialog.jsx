@@ -7,6 +7,7 @@ import {
   Download,
   FilePenLine,
   Image,
+  Link2,
   Play,
   X,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ import {
 import { Mascot } from '../mascot/Mascot.jsx';
 import { DisclosurePanel } from '../studio/Disclosure.jsx';
 import { reactionLabels } from '../studio/catalog.js';
+import { shareLinkFor } from '../share.js';
 import { downloadBlob } from './download.js';
 import {
   createSvg,
@@ -39,6 +41,7 @@ const kinds = [
   ['image', 'Image', 'PNG ou SVG', Image],
   ['animation', 'Animation', 'GIF ou vidéo', Play],
   ['project', 'Projet Wobbi', 'Pour la modifier plus tard', FilePenLine],
+  ['link', 'Lien à partager', 'Ouvert dans Wobbi', Link2],
 ];
 
 function componentName(name) {
@@ -107,6 +110,7 @@ export function ExportDialog({ config, onClose, notify }) {
   const [folder, setFolder] = useState('src/components/mascot');
   const [selectedFile, setSelectedFile] = useState('');
   const [copiedFile, setCopiedFile] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
   const [busy, setBusy] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -134,6 +138,13 @@ export function ExportDialog({ config, onClose, notify }) {
     if (format === 'vue') return generateVueFiles(exportedConfig);
     return generateFiles(exportedConfig);
   }, [exportedConfig, format, kind, configErrors.length]);
+  const shareLink = useMemo(
+    () =>
+      kind === 'link' && !configErrors.length
+        ? shareLinkFor(exportedConfig)
+        : '',
+    [exportedConfig, kind, configErrors.length],
+  );
   const filenames = Object.keys(codeFiles);
   const activeFile = filenames.includes(selectedFile)
     ? selectedFile
@@ -152,7 +163,13 @@ export function ExportDialog({ config, onClose, notify }) {
   function choose(value) {
     setKind(value);
     setFormat(
-      { code: 'react', image: 'png', animation: 'gif', project: 'json' }[value],
+      {
+        code: 'react',
+        image: 'png',
+        animation: 'gif',
+        project: 'json',
+        link: 'link',
+      }[value],
     );
     setError('');
     if (value === 'animation') setSize(256);
@@ -164,19 +181,52 @@ export function ExportDialog({ config, onClose, notify }) {
     onClose();
   }
 
+  async function copyTextWithFeedback({
+    textToCopy,
+    setCopiedIndicator,
+    copiedIndicatorValue,
+    idleIndicatorValue,
+    successMessage,
+    failureMessage,
+  }) {
+    try {
+      await copyText(textToCopy);
+      setCopiedIndicator(copiedIndicatorValue);
+      notify(successMessage);
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(
+        () => setCopiedIndicator(idleIndicatorValue),
+        1600,
+      );
+    } catch {
+      setError(failureMessage);
+    }
+  }
+
   async function copyFile() {
     if (!activeFile) return;
-    try {
-      await copyText(codeFiles[activeFile]);
-      setCopiedFile(activeFile);
-      notify(`${activeFile} copié.`);
-      window.clearTimeout(copyTimer.current);
-      copyTimer.current = window.setTimeout(() => setCopiedFile(''), 1600);
-    } catch {
-      setError(
+    await copyTextWithFeedback({
+      textToCopy: codeFiles[activeFile],
+      setCopiedIndicator: setCopiedFile,
+      copiedIndicatorValue: activeFile,
+      idleIndicatorValue: '',
+      successMessage: `${activeFile} copié.`,
+      failureMessage:
         'Impossible de copier ce fichier. Vous pouvez sélectionner son contenu.',
-      );
-    }
+    });
+  }
+
+  async function copyLink() {
+    if (!shareLink) return;
+    await copyTextWithFeedback({
+      textToCopy: shareLink,
+      setCopiedIndicator: setCopiedLink,
+      copiedIndicatorValue: true,
+      idleIndicatorValue: false,
+      successMessage: 'Lien copié.',
+      failureMessage:
+        'Impossible de copier ce lien. Vous pouvez le sélectionner.',
+    });
   }
 
   async function download() {
@@ -319,7 +369,7 @@ export function ExportDialog({ config, onClose, notify }) {
 
           <div className={`export-options ${kind === 'code' ? 'is-code' : ''}`}>
             <div>
-              {kind !== 'project' && (
+              {kind !== 'project' && kind !== 'link' && (
                 <>
                   <h2>Format</h2>
                   <div className="format-options">
@@ -381,6 +431,34 @@ export function ExportDialog({ config, onClose, notify }) {
                   Conservez les formes, couleurs, accessoires et réactions de
                   votre création pour la reprendre plus tard dans Wobbi.
                 </p>
+              ) : kind === 'link' ? (
+                <>
+                  <p className="export-help">
+                    Ouvert dans un navigateur, ce lien recharge exactement cette
+                    création dans Wobbi.
+                  </p>
+                  <div className="share-link-row">
+                    <input
+                      type="text"
+                      readOnly
+                      value={shareLink}
+                      aria-label="Lien à partager"
+                      onFocus={(event) => event.target.select()}
+                    />
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      disabled={!shareLink}
+                    >
+                      {copiedLink ? (
+                        <Check size={15} aria-hidden="true" />
+                      ) : (
+                        <Copy size={15} aria-hidden="true" />
+                      )}
+                      {copiedLink ? 'Copié' : 'Copier'}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
                   <label>
@@ -448,9 +526,11 @@ export function ExportDialog({ config, onClose, notify }) {
                 <p>
                   {kind === 'project'
                     ? 'Votre création, rééditable'
-                    : kind === 'image'
-                      ? 'La pose sélectionnée'
-                      : 'Aperçu de la réaction'}
+                    : kind === 'link'
+                      ? 'Votre création, partagée telle quelle'
+                      : kind === 'image'
+                        ? 'La pose sélectionnée'
+                        : 'Aperçu de la réaction'}
                 </p>
               </div>
             )}
@@ -524,22 +604,34 @@ export function ExportDialog({ config, onClose, notify }) {
           <button type="button" className="text-button" onClick={close}>
             Annuler
           </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={busy}
-            onClick={download}
-          >
-            <Download size={17} />
-            {busy
-              ? 'Préparation…'
-              : {
-                  code: 'Télécharger les fichiers',
-                  image: 'Télécharger l’image',
-                  animation: 'Télécharger l’animation',
-                  project: 'Enregistrer le projet',
-                }[kind]}
-          </button>
+          {kind === 'link' ? (
+            <button
+              type="button"
+              className="primary"
+              disabled={!shareLink}
+              onClick={copyLink}
+            >
+              {copiedLink ? <Check size={17} /> : <Copy size={17} />}
+              {copiedLink ? 'Lien copié' : 'Copier le lien'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={download}
+            >
+              <Download size={17} />
+              {busy
+                ? 'Préparation…'
+                : {
+                    code: 'Télécharger les fichiers',
+                    image: 'Télécharger l’image',
+                    animation: 'Télécharger l’animation',
+                    project: 'Enregistrer le projet',
+                  }[kind]}
+            </button>
+          )}
         </footer>
       </div>
     </dialog>

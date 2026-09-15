@@ -46,7 +46,7 @@ test('brand identity, live gaze, customization, undo, project round trip', async
     .not.toBe(gaze);
   await page.getByRole('button', { name: 'Forme : Rond', exact: true }).click();
   await page
-    .getByRole('button', { name: 'Voir 9 regards de plus', exact: true })
+    .getByRole('button', { name: 'Voir 8 regards de plus', exact: true })
     .click();
   await page
     .getByRole('button', { name: 'Yeux : Points', exact: true })
@@ -64,7 +64,7 @@ test('brand identity, live gaze, customization, undo, project round trip', async
   await page
     .getByRole('button', { name: 'Bouche : Sourire', exact: true })
     .click();
-  await page.getByText('Teinte de la bouche', { exact: true }).click();
+  await page.getByText('Apparence de la bouche', { exact: true }).click();
   await page
     .getByRole('button', {
       name: 'Couleur de la bouche #61a9ff',
@@ -107,12 +107,9 @@ test('brand identity, live gaze, customization, undo, project round trip', async
   ).toBeVisible();
   await page
     .getByRole('button', {
-      name: /Voir \d+ détails de tête de plus/,
+      name: 'Oreilles : Oreilles de chat',
       exact: true,
     })
-    .click();
-  await page
-    .getByRole('button', { name: 'Tête : Oreilles de chat', exact: true })
     .click();
   await page
     .getByRole('button', { name: 'Accessoires : Lunettes', exact: true })
@@ -540,10 +537,7 @@ test('mobile layout stays within viewport and exposes accessories and export', a
   );
   await page.getByRole('button', { name: /Accessoires & détails/ }).click();
   await page
-    .getByRole('button', { name: /Voir \d+ détails de tête de plus/ })
-    .click();
-  await page
-    .getByRole('button', { name: 'Tête : Oreilles de chat', exact: true })
+    .getByRole('button', { name: 'Oreilles : Oreilles de chat', exact: true })
     .click();
   await page.getByRole('button', { name: 'Exporter', exact: true }).click();
   const dialog = page.getByRole('dialog');

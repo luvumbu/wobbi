@@ -7,10 +7,10 @@ export const shapeLabels = {
   drop: 'Goutte',
   oval: 'Ovale',
   egg: 'Œuf',
+  custom: 'Personnalisée',
 };
 export const eyeLabels = {
   classic: 'Grands yeux',
-  glossy: 'Brillants',
   round: 'Ronds',
   capsules: 'Capsules',
   dots: 'Points',
@@ -20,7 +20,14 @@ export const eyeLabels = {
   angry: 'Anguleux',
   'side-eye': 'De côté',
   wink: 'Clin d’œil',
+  custom: 'Personnalisés',
+};
+export const irisLabels = {
+  dot: 'Simple',
+  glossy: 'Brillant',
   money: 'Dollars',
+  heart: 'Cœur',
+  star: 'Étoile',
 };
 export const noseLabels = {
   none: 'Sans',
@@ -57,6 +64,15 @@ export const headLabels = {
   horns: 'Cornes',
   halo: 'Auréole',
 };
+export const headGroups = [
+  { title: 'Cheveux', itemLabel: 'cheveux', values: ['tuft', 'curl'] },
+  {
+    title: 'Oreilles',
+    itemLabel: 'oreilles',
+    values: ['bunny-ears', 'ears', 'round-ears'],
+  },
+  { title: 'Détails', itemLabel: 'détails', values: ['horns', 'halo'] },
+];
 export const accessoryLabels = {
   none: 'Sans',
   glasses: 'Lunettes',

@@ -19,11 +19,8 @@ for (const view of ['creation', 'details', 'export', 'mobile']) {
         .click();
       await page.getByRole('button', { name: /Accessoires & détails/ }).click();
       await page
-        .getByRole('button', { name: /Voir \d+ détails de tête de plus/ })
-        .click();
-      await page
         .getByRole('button', {
-          name: 'Tête : Oreilles de chat',
+          name: 'Oreilles : Oreilles de chat',
           exact: true,
         })
         .click();

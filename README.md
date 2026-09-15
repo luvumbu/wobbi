@@ -16,6 +16,11 @@ npm run dev
 
 Le studio est disponible sur http://127.0.0.1:5173.
 
+Sur Windows, vous pouvez aussi double-cliquer sur `Lancer Wobbi.bat` à la racine
+du projet : il installe Node.js si besoin, installe les dépendances au premier
+lancement, démarre le studio et ouvre votre navigateur automatiquement. Aucune
+ligne de commande à taper.
+
 ## Fonctionnalités
 
 - 8 silhouettes, 12 regards, 8 bouches, détails de tête et accessoires compatibles avec chaque forme.
@@ -68,4 +73,4 @@ npm run test:visual
 - `src/export` : dialogue d’export et encodage des médias.
 - `public/brand` : ressources de marque utilisées par l’interface.
 
-Consultez [CONTRIBUTING.md](./CONTRIBUTING.md) pour le workflow de contribution et [docs/architecture.md](./docs/architecture.md) pour les responsabilités des modules.
+Consultez [.github/CONTRIBUTING.md](./.github/CONTRIBUTING.md) pour le workflow de contribution et [docs/architecture.md](./docs/architecture.md) pour les responsabilités des modules.

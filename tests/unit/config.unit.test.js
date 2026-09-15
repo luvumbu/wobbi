@@ -11,6 +11,7 @@ import {
   accessoriesForShape,
   DEPTHS,
   EYES,
+  IRIS,
   NOSES,
   BROWS,
   headsForShape,
@@ -127,9 +128,11 @@ describe('mascot domain', () => {
     );
   });
   it('offers a broader but validated expression system', () => {
-    expect(EYES).toHaveLength(12);
-    expect(EYES).toEqual(
-      expect.arrayContaining(['glossy', 'side-eye', 'wink', 'money']),
+    expect(EYES).toHaveLength(11);
+    expect(EYES).toEqual(expect.arrayContaining(['round', 'side-eye', 'wink']));
+    expect(IRIS).toHaveLength(5);
+    expect(IRIS).toEqual(
+      expect.arrayContaining(['dot', 'glossy', 'money', 'heart', 'star']),
     );
     expect(EYES).not.toContain('stars');
     expect(NOSES).toEqual([

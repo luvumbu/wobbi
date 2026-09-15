@@ -22,7 +22,8 @@ it('reflects the complete editable configuration in focused React files', () => 
     "export { CloudBuddy } from './CloudBuddy.jsx'",
   );
   expect(files['motion.js']).toContain('function mountCharacter');
-  expect(Object.keys(files)).toHaveLength(8);
+  expect(files['custom-shape.js']).toContain('customShapeToPath');
+  expect(Object.keys(files)).toHaveLength(9);
 });
 
 it('provides separate Vue and standalone JavaScript deliveries', () => {

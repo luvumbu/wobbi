@@ -30,7 +30,7 @@ it('opens with the unchanged full logo and its live brand mascot', () => {
     within(
       screen.getByRole('group', { name: 'Couleur du corps' }),
     ).getAllByRole('button'),
-  ).toHaveLength(6);
+  ).toHaveLength(7);
   const studioActions = screen.getByRole('navigation', {
     name: 'Actions du studio',
   });
@@ -66,7 +66,7 @@ it('previews white feature colours against the selected body colour', () => {
     }),
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Teinte de la bouche', exact: true }),
+    screen.getByRole('button', { name: 'Apparence de la bouche', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -132,7 +132,10 @@ it('customizes illustrated parts and reverses an accessory edit', () => {
     screen.getByRole('button', { name: 'Forme : Rond', exact: true }),
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 9 regards de plus', exact: true }),
+    screen.getByRole('button', {
+      name: 'Voir 8 regards de plus',
+      exact: true,
+    }),
   );
   fireEvent.click(
     screen.getByRole('button', { name: 'Yeux : Points', exact: true }),
@@ -142,7 +145,7 @@ it('customizes illustrated parts and reverses an accessory edit', () => {
   );
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Couleur des yeux #9270ff',
+      name: 'Couleur de l’œil #9270ff',
       exact: true,
     }),
   );
@@ -150,7 +153,7 @@ it('customizes illustrated parts and reverses an accessory edit', () => {
     screen.getByRole('button', { name: 'Bouche : Sourire', exact: true }),
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Teinte de la bouche', exact: true }),
+    screen.getByRole('button', { name: 'Apparence de la bouche', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -179,12 +182,7 @@ it('customizes illustrated parts and reverses an accessory edit', () => {
   ).toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('button', {
-      name: /Voir \d+ détails de tête de plus/,
-    }),
-  );
-  fireEvent.click(
-    screen.getByRole('button', {
-      name: 'Tête : Oreilles de chat',
+      name: 'Oreilles : Oreilles de chat',
       exact: true,
     }),
   );
@@ -215,7 +213,7 @@ it('expands and reduces the compact shape, eye and mouth grids', () => {
     }),
   ).not.toBeInTheDocument();
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 5 formes de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 6 formes de plus', exact: true }),
   );
   expect(
     screen.getByRole('button', { name: 'Forme : Ovale', exact: true }),
@@ -232,7 +230,10 @@ it('expands and reduces the compact shape, eye and mouth grids', () => {
   );
 
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 9 regards de plus', exact: true }),
+    screen.getByRole('button', {
+      name: 'Voir 8 regards de plus',
+      exact: true,
+    }),
   );
   expect(
     screen.getByRole('button', { name: 'Yeux : Pixels', exact: true }),
@@ -259,7 +260,7 @@ it('expands and reduces the compact shape, eye and mouth grids', () => {
     screen.getByRole('button', { name: 'Bouche : Deux dents', exact: true }),
   ).toBeInTheDocument();
 });
-it('shows and applies both eye tones only for eye families that use pupils', () => {
+it('keeps the eye globe shape and the iris fully independent, each with its own colour', () => {
   const { container } = render(<App />);
   fireEvent.click(
     screen.getByRole('button', { name: 'Apparence des yeux', exact: true }),
@@ -267,35 +268,53 @@ it('shows and applies both eye tones only for eye families that use pupils', () 
   expect(
     screen.getByRole('group', { name: 'Couleur de l’œil' }),
   ).toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Apparence de l’iris', exact: true }),
+  );
   expect(
-    screen.getByRole('group', { name: 'Couleur des pupilles' }),
+    screen.getByRole('group', { name: 'Couleur de l’iris' }),
   ).toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Couleur des pupilles #9270ff',
+      name: 'Couleur de l’iris #9270ff',
       exact: true,
     }),
   );
   expect(
     container.querySelector('.mascot-hit [data-part="pupil"] ellipse'),
   ).toHaveAttribute('fill', '#9270ff');
+
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 9 regards de plus', exact: true }),
+    screen.getByRole('button', {
+      name: 'Voir 8 regards de plus',
+      exact: true,
+    }),
   );
   fireEvent.click(
     screen.getByRole('button', { name: 'Yeux : Points', exact: true }),
   );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Iris : Étoile', exact: true }),
+  );
+  expect(container.querySelector('.mascot-hit [data-eyes]')).toHaveAttribute(
+    'data-eyes',
+    'dots',
+  );
+  expect(container.querySelector('.mascot-hit [data-iris]')).toHaveAttribute(
+    'data-iris',
+    'star',
+  );
   expect(
-    screen.getByRole('group', { name: 'Couleur des yeux' }),
-  ).toBeInTheDocument();
-  expect(
-    screen.queryByRole('group', { name: 'Couleur des pupilles' }),
-  ).not.toBeInTheDocument();
+    container.querySelector('.mascot-hit [data-eye-symbol="star"]'),
+  ).toHaveAttribute('fill', '#9270ff');
 });
 it('offers a lash colour only for eye families that draw lashes', () => {
   const { container } = render(<App />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 9 regards de plus', exact: true }),
+    screen.getByRole('button', {
+      name: 'Voir 8 regards de plus',
+      exact: true,
+    }),
   );
   fireEvent.click(
     screen.getByRole('button', { name: 'Yeux : Paupières', exact: true }),
@@ -412,12 +431,7 @@ it('only offers details compatible with the selected silhouette', () => {
   expect(screen.queryByText('Petites mains')).not.toBeInTheDocument();
   fireEvent.click(
     screen.getByRole('button', {
-      name: /Voir \d+ détails de tête de plus/,
-    }),
-  );
-  fireEvent.click(
-    screen.getByRole('button', {
-      name: 'Tête : Oreilles de chat',
+      name: 'Oreilles : Oreilles de chat',
       exact: true,
     }),
   );
@@ -431,7 +445,7 @@ it('only offers details compatible with the selected silhouette', () => {
     screen.getByRole('button', { name: 'Accessoires : Casque', exact: true }),
   );
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 5 formes de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 6 formes de plus', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -441,7 +455,7 @@ it('only offers details compatible with the selected silhouette', () => {
   );
   expect(
     screen.queryByRole('button', {
-      name: 'Tête : Oreilles de chat',
+      name: 'Oreilles : Oreilles de chat',
       exact: true,
     }),
   ).not.toBeInTheDocument();
@@ -452,7 +466,7 @@ it('only offers details compatible with the selected silhouette', () => {
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   expect(
-    screen.getByRole('button', { name: 'Tête : Sans', exact: true }),
+    screen.getByRole('button', { name: 'Cheveux : Sans', exact: true }),
   ).toHaveAttribute('aria-pressed', 'true');
 });
 it('accepts an exact colour and opens an export choice without downloading', async () => {

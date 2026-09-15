@@ -104,7 +104,7 @@ test('authors the shared sleep, thought and song reactions', async ({
 test('renders oval and egg as distinct tall silhouettes', async ({ page }) => {
   await page.goto('/');
   await page
-    .getByRole('button', { name: 'Voir 5 formes de plus', exact: true })
+    .getByRole('button', { name: 'Voir 6 formes de plus', exact: true })
     .click();
   await page
     .getByRole('button', { name: 'Forme : Ovale', exact: true })
@@ -136,7 +136,7 @@ test('keeps the shape grid compact and collapses an extra selection', async ({
     page.getByRole('button', { name: 'Forme : Triangle', exact: true }),
   ).toHaveCount(0);
   await page
-    .getByRole('button', { name: 'Voir 5 formes de plus', exact: true })
+    .getByRole('button', { name: 'Voir 6 formes de plus', exact: true })
     .click();
   await expect(
     page.getByRole('button', { name: 'Forme : Ovale', exact: true }),
@@ -256,16 +256,13 @@ test('fits oval face accessories and excludes square ears', async ({
   await page
     .getByRole('button', { name: 'Forme : Carré arrondi', exact: true })
     .click();
-  await page
-    .getByRole('button', { name: /Voir \d+ détails de tête de plus/ })
-    .click();
   for (const label of [
     'Oreilles de lapin',
     'Oreilles de chat',
     'Oreilles rondes',
   ])
     await expect(
-      page.getByRole('button', { name: `Tête : ${label}`, exact: true }),
+      page.getByRole('button', { name: `Oreilles : ${label}`, exact: true }),
     ).toHaveCount(0);
 });
 

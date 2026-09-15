@@ -3,6 +3,7 @@ import {
   FolderOpen,
   Redo2,
   RotateCcw,
+  Shuffle,
   Star,
   Undo2,
   Upload,
@@ -10,6 +11,8 @@ import {
 import { useStudio } from './studio/useStudio.js';
 import { CustomizePanel } from './studio/CustomizePanel.jsx';
 import { Stage } from './studio/Stage.jsx';
+import { randomizeConfig } from './studio/randomize.js';
+import { configFromShareHash } from './share.js';
 import {
   createConfig,
   PROJECT_VERSION,
@@ -55,6 +58,10 @@ export default function App() {
     timers.current.forEach(clearTimeout);
     timers.current = [];
   }
+  function resetActiveReaction() {
+    clearSequence();
+    setReaction('idle');
+  }
   function reactTo(state) {
     clearSequence();
     setReaction(state);
@@ -75,9 +82,19 @@ export default function App() {
     },
     [],
   );
+  useEffect(() => {
+    if (!window.location.hash) return;
+    const shared = configFromShareHash(window.location.hash);
+    queueMicrotask(() => {
+      if (shared) {
+        studio.setConfig(shared);
+        notify('Mascotte partagée chargée.');
+      } else notify('Ce lien de partage n’est plus valide.');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   function patch(changes) {
-    clearSequence();
-    setReaction('idle');
+    resetActiveReaction();
     studio.patch(changes);
   }
   async function importProject(e) {
@@ -98,8 +115,7 @@ export default function App() {
       if (validateConfig(input).length)
         throw new Error('Ce projet contient des valeurs invalides.');
       const config = createConfig(input);
-      clearSequence();
-      setReaction('idle');
+      resetActiveReaction();
       studio.setConfig(config);
       notify('Votre création est prête.');
     } catch (err) {
@@ -165,14 +181,25 @@ export default function App() {
             aria-label="Repartir de Wobbi"
             title="Repartir de Wobbi"
             onClick={() => {
-              clearSequence();
-              setReaction('idle');
+              resetActiveReaction();
               studio.setConfig(createConfig());
               setDetails(false);
               notify('Voici Wobbi, comme dans le logo.');
             }}
           >
             <RotateCcw size={20} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Surprise-moi"
+            title="Surprise-moi"
+            onClick={() => {
+              resetActiveReaction();
+              studio.patch(randomizeConfig());
+              notify('Nouvelle combinaison surprise.');
+            }}
+          >
+            <Shuffle size={20} />
           </button>
           <button
             className="primary export-button"

@@ -115,6 +115,12 @@ it('renders the new facial details and authored reaction effects', () => {
     ),
   );
   expect(detailed).toContain('data-eye-symbol="money"');
+  for (const eyes of ['heart', 'star'])
+    expect(
+      renderToStaticMarkup(
+        renderParts(createElement, createConfig({ eyes }), 'idle'),
+      ),
+    ).toContain(`data-eye-symbol="${eyes}"`);
   expect(detailed).toContain('data-part="brows"');
   expect(detailed).toContain('data-part="nose"');
   expect(detailed).not.toContain('data-part="mouth"');

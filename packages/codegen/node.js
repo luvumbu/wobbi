@@ -8,6 +8,7 @@ const source = (name) =>
   readFileSync(new URL(`../core/${name}.js`, import.meta.url), 'utf8');
 const sources = {
   config: source('config'),
+  customShape: source('custom-shape'),
   renderModel: source('render-model'),
   renderEffects: source('render-effects'),
   render: source('render'),

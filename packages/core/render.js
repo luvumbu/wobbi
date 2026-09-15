@@ -5,6 +5,13 @@ import {
   closedEyeColor,
 } from './render-model.js';
 import { renderEffects } from './render-effects.js';
+import {
+  customShapeToPath,
+  customEyeToPath,
+  customEyeExtent,
+} from './custom-shape.js';
+
+const EYE_SYMBOLS = { money: '$', heart: '♥', star: '★' };
 
 export function renderParts(h, config, state = 'idle') {
   let key = 0;
@@ -22,7 +29,10 @@ export function renderParts(h, config, state = 'idle') {
   const sleeping = state === 'sleeping';
   const singing = state === 'singing';
   const angry = state === 'error' || config.eyes === 'angry';
-  const shape = BODY_PATHS[config.shape] || BODY_PATHS.wobbi;
+  const shape =
+    config.shape === 'custom'
+      ? customShapeToPath(config.customShape.points)
+      : BODY_PATHS[config.shape] || BODY_PATHS.wobbi;
   const fit = SHAPE_FITS[config.shape] || SHAPE_FITS.wobbi;
   const depthProfile =
     config.depth === 'deep'
@@ -78,14 +88,25 @@ export function renderParts(h, config, state = 'idle') {
   };
   const eyes = [0, 1].map((i) => {
     const type = config.eyes;
+    const iris = config.iris;
     const x = i ? 160 : 102;
     const y = (config.shape === 'wobbi' ? (i ? 117 : 127) : 123) + faceY;
     const dots = type === 'dots';
     const pixel = type === 'pixel';
-    const money = type === 'money';
+    const custom = type === 'custom';
+    const customEyePoints = custom
+      ? i && !config.customEyeShape.symmetric
+        ? config.customEyeShape.right.points
+        : config.customEyeShape.left.points
+      : null;
+    const customEyeMirror =
+      custom && i === 1 && config.customEyeShape.symmetric;
+    const customExtent = custom
+      ? customEyeExtent(customEyePoints)
+      : { width: 0, height: 0 };
+    const symbol = EYE_SYMBOLS[iris];
     const capsule = type === 'capsules' || type === 'asymmetric';
     const wink = type === 'wink' && i === 1 && !startled;
-    const pupilled = !dots && !pixel && !money && !capsule && !wink;
     const hasLashes = LASHED_EYES.includes(type);
     const configuredLashInk = config.lashColor || closedEyeInk;
     const lashInk =
@@ -94,33 +115,33 @@ export function renderParts(h, config, state = 'idle') {
         ? configuredLashInk
         : closedEyeInk;
     const lashData = hasLashes ? { 'data-eye-lash': type } : {};
-    const width = dots
-      ? 7
-      : pixel
-        ? 12
-        : type === 'asymmetric' && i
-          ? 7
-          : capsule
-            ? 10
-            : type === 'round'
-              ? 21
-              : type === 'glossy'
-                ? 24
+    const width = custom
+      ? customExtent.width
+      : dots
+        ? 7
+        : pixel
+          ? 12
+          : type === 'asymmetric' && i
+            ? 7
+            : capsule
+              ? 10
+              : type === 'round'
+                ? 21
                 : type === 'side-eye'
                   ? 24
                   : 22;
-    const height = startled
-      ? 30
-      : type === 'asymmetric' && i
-        ? 13
-        : dots
-          ? 8
-          : pixel
-            ? 17
-            : type === 'round'
-              ? 21
-              : type === 'glossy'
-                ? 31
+    const height = custom
+      ? customExtent.height
+      : startled
+        ? 30
+        : type === 'asymmetric' && i
+          ? 13
+          : dots
+            ? 8
+            : pixel
+              ? 17
+              : type === 'round'
+                ? 21
                 : type === 'side-eye'
                   ? 25
                   : 29;
@@ -162,48 +183,56 @@ export function renderParts(h, config, state = 'idle') {
           ...lashData,
         }),
       );
-    } else if (money) {
-      eyeParts.push(
-        ellipse(x, y, 21, 24, {
-          fill: config.eyeColor,
-          'data-part': 'eye-white',
-          ...eyeStroke,
-        }),
-        n(
-          'text',
-          {
-            x,
-            y: y + 2,
-            fill: pupilInk,
-            fontSize: 31,
-            fontWeight: 900,
-            textAnchor: 'middle',
-            dominantBaseline: 'middle',
-            'data-eye-symbol': 'money',
-          },
-          '$',
-        ),
-      );
     } else {
       eyeParts.push(
-        pixel
-          ? n('rect', {
-              x: x - width,
-              y: y - height,
-              width: width * 2,
-              height: height * 2,
+        custom
+          ? path(customEyeToPath(customEyePoints, x, y, customEyeMirror), {
               fill: config.eyeColor,
               'data-part': 'eye-white',
               ...eyeStroke,
             })
-          : ellipse(x, y, width, height, {
-              fill: config.eyeColor,
-              'data-part': 'eye-white',
-              ...eyeStroke,
-            }),
+          : pixel
+            ? n('rect', {
+                x: x - width,
+                y: y - height,
+                width: width * 2,
+                height: height * 2,
+                fill: config.eyeColor,
+                'data-part': 'eye-white',
+                ...eyeStroke,
+              })
+            : ellipse(x, y, width, height, {
+                fill: config.eyeColor,
+                'data-part': 'eye-white',
+                ...eyeStroke,
+              }),
       );
-      if (pupilled) {
-        const gazeX =
+      if (symbol) {
+        // Glyph is always sized off this globe's own extent, so it can never
+        // spill outside the eye-white shape behind it, whatever globe shape
+        // and glyph are paired.
+        const fontSize = Math.min(
+          20,
+          Math.max(8, Math.min(width, height) * 1.3),
+        );
+        eyeParts.push(
+          n(
+            'text',
+            {
+              x,
+              y: y + fontSize * 0.07,
+              fill: pupilInk,
+              fontSize,
+              fontWeight: 900,
+              textAnchor: 'middle',
+              dominantBaseline: 'middle',
+              'data-eye-symbol': iris,
+            },
+            symbol,
+          ),
+        );
+      } else {
+        const baseGazeX =
           type === 'side-eye'
             ? 10
             : thinking
@@ -211,11 +240,23 @@ export function renderParts(h, config, state = 'idle') {
               : config.shape === 'wobbi'
                 ? 7
                 : 2;
+        const gazeX = Math.min(baseGazeX, width * 0.55);
         const pupilX = x + gazeX;
-        const pupilY = y + (type === 'round' ? -2 : -8);
-        const pupilWidth = type === 'glossy' ? 11 : startled ? 6 : 9;
-        const pupilHeight =
-          type === 'round' ? 10 : type === 'glossy' ? 14 : startled ? 8 : 11;
+        const baseYOffset = type === 'round' ? 2 : 8;
+        const pupilY = y - Math.min(baseYOffset, height * 0.55);
+        const basePupilWidth = iris === 'glossy' ? 11 : startled ? 6 : 9;
+        const basePupilHeight =
+          type === 'round' ? 10 : iris === 'glossy' ? 14 : startled ? 8 : 11;
+        const pupilWidth = Math.min(basePupilWidth, width * 0.6);
+        const pupilHeight = Math.min(basePupilHeight, height * 0.6);
+        const highlightRx = Math.min(
+          iris === 'glossy' ? 4 : 2.6,
+          pupilWidth * 0.5,
+        );
+        const highlightRy = Math.min(
+          iris === 'glossy' ? 5 : 3.2,
+          pupilHeight * 0.5,
+        );
         eyeParts.push(
           group(
             'pupil',
@@ -228,16 +269,19 @@ export function renderParts(h, config, state = 'idle') {
                   ellipse(
                     pupilX - pupilWidth * 0.38,
                     pupilY - pupilHeight * 0.42,
-                    type === 'glossy' ? 4 : 2.6,
-                    type === 'glossy' ? 5 : 3.2,
+                    highlightRx,
+                    highlightRy,
                     { fill: '#ffffff', opacity: 0.96 },
                   ),
-                  ...(type === 'glossy'
+                  ...(iris === 'glossy'
                     ? [
-                        ellipse(pupilX + 4, pupilY + 5, 2.2, 2.5, {
-                          fill: '#ffffff',
-                          opacity: 0.75,
-                        }),
+                        ellipse(
+                          pupilX + Math.min(4, pupilWidth * 0.4),
+                          pupilY + Math.min(5, pupilHeight * 0.4),
+                          Math.min(2.2, highlightRx * 0.6),
+                          Math.min(2.5, highlightRy * 0.6),
+                          { fill: '#ffffff', opacity: 0.75 },
+                        ),
                       ]
                     : []),
                 ]),
@@ -303,6 +347,10 @@ export function renderParts(h, config, state = 'idle') {
   const browY = 88 + faceY;
   const browInk = config.browColor || closedEyeInk;
   const browNeedsOutline = browInk.toLowerCase() === config.color.toLowerCase();
+  const browOutlineStroke =
+    config.browOutlineWidth > 0 ? config.browOutlineColor : closedEyeInk;
+  const browOutlineWidth =
+    config.browOutlineWidth > 0 ? config.browOutlineWidth * 2 + 5 : 8;
   const browPaths = {
     soft: [
       `M82 ${browY + 5} Q102 ${browY - 3} 121 ${browY + 4}`,
@@ -333,11 +381,11 @@ export function renderParts(h, config, state = 'idle') {
       : group(
           'brows',
           ...browPaths[effectiveBrows].flatMap((d, i) => [
-            browNeedsOutline
+            browNeedsOutline || config.browOutlineWidth > 0
               ? path(d, {
                   fill: 'none',
-                  stroke: closedEyeInk,
-                  strokeWidth: 8,
+                  stroke: browOutlineStroke,
+                  strokeWidth: browOutlineWidth,
                   strokeLinecap: 'round',
                   opacity: 0.9,
                 })
@@ -354,9 +402,15 @@ export function renderParts(h, config, state = 'idle') {
   const noseY = 156 + faceY * 0.65;
   const noseNeedsOutline =
     config.noseColor.toLowerCase() === config.color.toLowerCase();
-  const noseOutline = noseNeedsOutline
-    ? { stroke: closedEyeInk, strokeWidth: 2.5 }
-    : {};
+  const noseOutline =
+    config.noseOutlineWidth > 0
+      ? {
+          stroke: config.noseOutlineColor,
+          strokeWidth: config.noseOutlineWidth,
+        }
+      : noseNeedsOutline
+        ? { stroke: closedEyeInk, strokeWidth: 2.5 }
+        : {};
   let nose = null;
   if (config.nose === 'dot')
     nose = group(
@@ -404,10 +458,9 @@ export function renderParts(h, config, state = 'idle') {
         `M128 ${noseY + 5} C120 ${noseY - 3} 111 ${noseY - 2} 104 ${noseY + 5} C110 ${noseY + 5} 109 ${noseY + 16} 120 ${noseY + 15} C125 ${noseY + 14} 128 ${noseY + 10} 128 ${noseY + 5}Z M128 ${noseY + 5} C136 ${noseY - 3} 145 ${noseY - 2} 152 ${noseY + 5} C146 ${noseY + 5} 147 ${noseY + 16} 136 ${noseY + 15} C131 ${noseY + 14} 128 ${noseY + 10} 128 ${noseY + 5}Z`,
         {
           fill: config.noseColor,
-          stroke: noseNeedsOutline ? closedEyeInk : 'none',
-          strokeWidth: noseNeedsOutline ? 2 : 0,
           strokeLinejoin: 'round',
           'data-nose-style': 'moustache',
+          ...noseOutline,
         },
       ),
     );
@@ -418,16 +471,19 @@ export function renderParts(h, config, state = 'idle') {
         `M112 ${noseY} Q128 ${noseY - 12} 144 ${noseY} Q128 ${noseY + 14} 112 ${noseY}Z`,
         {
           fill: config.noseColor,
+          strokeLinejoin: 'round',
           stroke: closedEyeInk,
           strokeWidth: 2,
-          strokeLinejoin: 'round',
+          ...noseOutline,
         },
       ),
       path(`M115 ${noseY} H141`, {
         fill: 'none',
-        stroke: closedEyeInk,
-        strokeWidth: 1.5,
-        opacity: 0.5,
+        stroke:
+          config.noseOutlineWidth > 0 ? config.noseOutlineColor : closedEyeInk,
+        strokeWidth:
+          config.noseOutlineWidth > 0 ? config.noseOutlineWidth : 1.5,
+        opacity: config.noseOutlineWidth > 0 ? 1 : 0.5,
       }),
     );
   const noseSpacing =
@@ -443,6 +499,23 @@ export function renderParts(h, config, state = 'idle') {
     ? 'none'
     : config.mouth;
   const muzzleSurprise = config.nose === 'muzzle' && startled;
+  const mouthOutlineActive = config.mouthOutlineWidth > 0;
+  const mouthOutline = mouthOutlineActive
+    ? {
+        stroke: config.mouthOutlineColor,
+        strokeWidth: config.mouthOutlineWidth,
+      }
+    : {};
+  const mouthLineBehind = (d, strokeWidth, props = {}) =>
+    mouthOutlineActive
+      ? path(d, {
+          fill: 'none',
+          stroke: config.mouthOutlineColor,
+          strokeWidth: strokeWidth + config.mouthOutlineWidth * 2,
+          strokeLinecap: 'round',
+          ...props,
+        })
+      : null;
   let mouth = null;
   if (configuredMouth !== 'none' || muzzleSurprise) {
     let d =
@@ -460,6 +533,7 @@ export function renderParts(h, config, state = 'idle') {
             : singing
               ? 'singing'
               : 'open',
+          ...mouthOutline,
         }),
         ...(config.depth === 'flat'
           ? []
@@ -477,6 +551,7 @@ export function renderParts(h, config, state = 'idle') {
       mouthParts = [
         path(`M110 ${mouthY - 5} Q128 ${mouthY + 20} 146 ${mouthY - 5}Z`, {
           fill: mouthInk,
+          ...mouthOutline,
         }),
         n('rect', {
           x: 119,
@@ -499,8 +574,8 @@ export function renderParts(h, config, state = 'idle') {
       mouthParts = [
         path(`M106 ${mouthY - 6} Q128 ${mouthY + 22} 150 ${mouthY - 6}Z`, {
           fill: '#ffffff',
-          stroke: mouthInk,
-          strokeWidth: 4,
+          stroke: mouthOutlineActive ? config.mouthOutlineColor : mouthInk,
+          strokeWidth: mouthOutlineActive ? config.mouthOutlineWidth : 4,
           strokeLinejoin: 'round',
         }),
         path(`M114 ${mouthY + 4} H142`, {
@@ -512,6 +587,10 @@ export function renderParts(h, config, state = 'idle') {
       ];
     else if (configuredMouth === 'pout')
       mouthParts = [
+        mouthLineBehind(
+          `M116 ${mouthY + 4} Q128 ${mouthY - 10} 140 ${mouthY + 4}`,
+          5,
+        ),
         path(`M116 ${mouthY + 4} Q128 ${mouthY - 10} 140 ${mouthY + 4}`, {
           fill: 'none',
           stroke: mouthInk,
@@ -521,6 +600,11 @@ export function renderParts(h, config, state = 'idle') {
       ];
     else if (configuredMouth === 'fangs')
       mouthParts = [
+        mouthLineBehind(
+          `M106 ${mouthY - 2} Q128 ${mouthY + 8} 150 ${mouthY - 2}`,
+          5,
+          { 'data-mouth-style': 'closed-fangs' },
+        ),
         path(`M106 ${mouthY - 2} Q128 ${mouthY + 8} 150 ${mouthY - 2}`, {
           fill: 'none',
           stroke: mouthInk,
@@ -532,14 +616,15 @@ export function renderParts(h, config, state = 'idle') {
           `M113 ${mouthY} L120 ${mouthY + 13} L126 ${mouthY + 2}Z M130 ${mouthY + 2} L136 ${mouthY + 13} L143 ${mouthY}Z`,
           {
             fill: '#ffffff',
-            stroke: mouthInk,
-            strokeWidth: 2,
+            stroke: mouthOutlineActive ? config.mouthOutlineColor : mouthInk,
+            strokeWidth: mouthOutlineActive ? config.mouthOutlineWidth : 2,
             strokeLinejoin: 'round',
           },
         ),
       ];
     else
       mouthParts = [
+        mouthLineBehind(d, 5),
         path(d, {
           fill: 'none',
           stroke: mouthInk,
@@ -556,6 +641,13 @@ export function renderParts(h, config, state = 'idle') {
   const crownRight = headX + crownHalf;
   const crownInnerHalf = Math.max(22, crownHalf * 0.38);
   const head = [];
+  const headOutline =
+    config.headOutlineWidth > 0
+      ? {
+          stroke: config.headOutlineColor,
+          strokeWidth: config.headOutlineWidth,
+        }
+      : {};
   const depthLayer = (d, part) =>
     config.depth === 'flat'
       ? null
@@ -567,13 +659,22 @@ export function renderParts(h, config, state = 'idle') {
   if (config.head === 'tuft') {
     const tuftPath = `M${headX - 20} ${headY + 9} Q${headX - crownHalf * 0.58} ${headY - 35} ${headX - 7} ${headY - 29} Q${headX + 10} ${headY - 30} ${headX - 6} ${headY - 11} Q${headX + crownHalf * 0.55} ${headY - 29} ${headX + 29} ${headY + 8}Z`;
     head.push(
-      path(tuftPath, { fill: config.color }),
+      path(tuftPath, { fill: config.color, ...headOutline }),
       depthLayer(tuftPath, 'tuft'),
     );
   }
   if (config.head === 'curl') {
     const curlPath = `M${headX + 3} ${headY + 11} C${headX - 1} ${headY - 5} ${headX - 22} ${headY - 12} ${headX - 18} ${headY - 29} C${headX - 14} ${headY - 47} ${headX + 15} ${headY - 48} ${headX + 18} ${headY - 30} C${headX + 20} ${headY - 18} ${headX + 4} ${headY - 18} ${headX + 7} ${headY - 29}`;
     head.push(
+      config.headOutlineWidth > 0
+        ? path(curlPath, {
+            fill: 'none',
+            stroke: config.headOutlineColor,
+            strokeWidth: 11 + config.headOutlineWidth * 2,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+          })
+        : null,
       path(curlPath, {
         fill: 'none',
         stroke: config.color,
@@ -606,7 +707,7 @@ export function renderParts(h, config, state = 'idle') {
       head.push(
         group(
           `bunny-ear-${i}`,
-          path(outerPath, { fill: config.color }),
+          path(outerPath, { fill: config.color, ...headOutline }),
           depthLayer(outerPath, `bunny-ear-${i}`),
           path(innerPath, { fill: config.accentColor, opacity: 0.9 }),
         ),
@@ -623,7 +724,7 @@ export function renderParts(h, config, state = 'idle') {
       head.push(
         group(
           `ear-${i}`,
-          path(outerPath, { fill: config.color }),
+          path(outerPath, { fill: config.color, ...headOutline }),
           depthLayer(outerPath, `ear-${i}`),
           path(innerPath, { fill: config.accentColor }),
         ),
@@ -639,7 +740,7 @@ export function renderParts(h, config, state = 'idle') {
       head.push(
         group(
           `round-ear-${i}`,
-          ellipse(earX, earY, 24, 25, { fill: config.color }),
+          ellipse(earX, earY, 24, 25, { fill: config.color, ...headOutline }),
           config.depth === 'flat'
             ? null
             : ellipse(earX, earY, 24, 25, {
@@ -659,6 +760,14 @@ export function renderParts(h, config, state = 'idle') {
     head.push(
       group(
         'halo',
+        config.headOutlineWidth > 0
+          ? ellipse(headX, haloY, Math.max(29, crownHalf * 0.48), 10, {
+              fill: 'none',
+              stroke: config.headOutlineColor,
+              strokeWidth: 7 + config.headOutlineWidth * 2,
+              opacity: 0.96,
+            })
+          : null,
         ellipse(headX, haloY, Math.max(29, crownHalf * 0.48), 10, {
           fill: 'none',
           stroke: config.accentColor,
@@ -689,6 +798,7 @@ export function renderParts(h, config, state = 'idle') {
       path(hornPath, {
         fill: config.accessoryColor,
         'data-head-style': 'horns',
+        ...headOutline,
       }),
       depthLayer(hornPath, 'horns'),
     );
@@ -696,8 +806,32 @@ export function renderParts(h, config, state = 'idle') {
   const accessoriesBehind = [];
   const accessoriesFront = [];
   const ey = 122 + faceY;
+  const accessoryOutlineActive = config.accessoryOutlineWidth > 0;
+  const accessoryOutline = accessoryOutlineActive
+    ? {
+        stroke: config.accessoryOutlineColor,
+        strokeWidth: config.accessoryOutlineWidth,
+      }
+    : {};
   if (config.accessory === 'glasses')
     accessoriesFront.push(
+      accessoryOutlineActive
+        ? n(
+            'g',
+            {
+              fill: 'none',
+              stroke: config.accessoryOutlineColor,
+              strokeWidth: 5 + config.accessoryOutlineWidth * 2,
+            },
+            ellipse(101, ey, 29, 33),
+            ellipse(160, ey, 29, 33),
+            fit.glassesArms === false
+              ? null
+              : path(
+                  `M72 ${ey - 5} L${128 - fit.templeHalf} ${ey - 9} M189 ${ey - 5} L${128 + fit.templeHalf} ${ey - 9}`,
+                ),
+          )
+        : null,
       n(
         'g',
         { fill: 'none', stroke: config.accessoryColor, strokeWidth: 5 },
@@ -728,14 +862,22 @@ export function renderParts(h, config, state = 'idle') {
         },
         path(leftLens, {
           fill: lensInk,
-          stroke: lensInk,
-          strokeWidth: 4,
+          stroke: accessoryOutlineActive
+            ? config.accessoryOutlineColor
+            : lensInk,
+          strokeWidth: accessoryOutlineActive
+            ? config.accessoryOutlineWidth
+            : 4,
           'data-accessory-piece': 'left-sunglass-lens',
         }),
         path(rightLens, {
           fill: lensInk,
-          stroke: lensInk,
-          strokeWidth: 4,
+          stroke: accessoryOutlineActive
+            ? config.accessoryOutlineColor
+            : lensInk,
+          strokeWidth: accessoryOutlineActive
+            ? config.accessoryOutlineWidth
+            : 4,
           'data-accessory-piece': 'right-sunglass-lens',
         }),
         path(`M126 ${ey - 5} Q131 ${ey - 10} 136 ${ey - 5}`, {
@@ -779,6 +921,16 @@ export function renderParts(h, config, state = 'idle') {
     const leftCupX = fit.sideLeft - 12;
     const rightCupX = fit.sideRight - 12;
     accessoriesBehind.push(
+      accessoryOutlineActive
+        ? path(
+            `M${fit.sideLeft} ${cupTop + 34} V${cupTop + 5} C${fit.sideLeft} ${headY - 38} ${fit.sideRight} ${headY - 38} ${fit.sideRight} ${cupTop + 5} V${cupTop + 34}`,
+            {
+              fill: 'none',
+              stroke: config.accessoryOutlineColor,
+              strokeWidth: 12 + config.accessoryOutlineWidth * 2,
+            },
+          )
+        : null,
       path(
         `M${fit.sideLeft} ${cupTop + 34} V${cupTop + 5} C${fit.sideLeft} ${headY - 38} ${fit.sideRight} ${headY - 38} ${fit.sideRight} ${cupTop + 5} V${cupTop + 34}`,
         {
@@ -797,6 +949,7 @@ export function renderParts(h, config, state = 'idle') {
         rx: 12,
         fill: config.accessoryColor,
         'data-accessory-piece': 'left-earcup',
+        ...accessoryOutline,
       }),
       n('rect', {
         x: rightCupX,
@@ -806,6 +959,7 @@ export function renderParts(h, config, state = 'idle') {
         rx: 12,
         fill: config.accessoryColor,
         'data-accessory-piece': 'right-earcup',
+        ...accessoryOutline,
       }),
       ...(config.depth === 'flat'
         ? []
@@ -837,7 +991,7 @@ export function renderParts(h, config, state = 'idle') {
     const bowY = 198 + faceY * 0.35;
     const bowPath = `M126 ${bowY} Q108 ${bowY - 15} 103 ${bowY - 2} Q105 ${bowY + 14} 126 ${bowY + 5}Z M130 ${bowY} Q148 ${bowY - 15} 153 ${bowY - 2} Q151 ${bowY + 14} 130 ${bowY + 5}Z`;
     accessoriesFront.push(
-      path(bowPath, { fill: config.accessoryColor }),
+      path(bowPath, { fill: config.accessoryColor, ...accessoryOutline }),
       depthLayer(bowPath, 'bowtie'),
       ellipse(128, bowY + 2, 7, 7, {
         fill: config.accentColor,
@@ -847,6 +1001,13 @@ export function renderParts(h, config, state = 'idle') {
   }
   if (config.accessory === 'monocle')
     accessoriesFront.push(
+      accessoryOutlineActive
+        ? ellipse(160, ey, 31, 35, {
+            fill: 'none',
+            stroke: config.accessoryOutlineColor,
+            strokeWidth: 5 + config.accessoryOutlineWidth * 2,
+          })
+        : null,
       ellipse(160, ey, 31, 35, {
         fill: 'none',
         stroke: config.accessoryColor,
@@ -905,6 +1066,7 @@ export function renderParts(h, config, state = 'idle') {
           height: 16,
           rx: 7,
           fill: config.accessoryColor,
+          ...accessoryOutline,
         }),
         n('rect', {
           x: 171,
@@ -962,7 +1124,15 @@ export function renderParts(h, config, state = 'idle') {
         }),
     group(
       'gaze',
-      n('g', { 'data-part': 'eyes', 'data-eyes': config.eyes }, ...eyes),
+      n(
+        'g',
+        {
+          'data-part': 'eyes',
+          'data-eyes': config.eyes,
+          'data-iris': config.iris,
+        },
+        ...eyes,
+      ),
     ),
     brows,
     nose,

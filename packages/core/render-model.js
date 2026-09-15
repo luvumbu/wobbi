@@ -114,6 +114,17 @@ export const SHAPE_FITS = {
     cheekX: [73, 183],
     cheekRadiusX: 11,
   },
+  custom: {
+    faceY: 0,
+    crownX: 128,
+    crownY: 53,
+    crownHalf: 67,
+    sideLeft: 38,
+    sideRight: 218,
+    templeHalf: 78,
+    cheekX: [68, 188],
+    cheekRadiusX: 15,
+  },
 };
 
 export function closedEyeColor(bodyColor) {

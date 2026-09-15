@@ -1,3 +1,14 @@
+import {
+  CUSTOM_SHAPE_MAX_RADIUS,
+  CUSTOM_SHAPE_MIN_RADIUS,
+  CUSTOM_SHAPE_POINT_COUNT,
+  DEFAULT_CUSTOM_SHAPE_POINTS,
+  CUSTOM_EYE_MAX_RADIUS,
+  CUSTOM_EYE_MIN_RADIUS,
+  CUSTOM_EYE_POINT_COUNT,
+  DEFAULT_CUSTOM_EYE_POINTS,
+} from './custom-shape.js';
+
 export const REACTIONS = [
   'idle',
   'happy',
@@ -19,10 +30,10 @@ export const SHAPES = [
   'drop',
   'oval',
   'egg',
+  'custom',
 ];
 export const EYES = [
   'classic',
-  'glossy',
   'round',
   'capsules',
   'dots',
@@ -32,8 +43,9 @@ export const EYES = [
   'angry',
   'side-eye',
   'wink',
-  'money',
+  'custom',
 ];
+export const IRIS = ['dot', 'glossy', 'money', 'heart', 'star'];
 export const NOSES = ['none', 'dot', 'round', 'muzzle', 'moustache', 'beak'];
 export const BROWS = ['none', 'soft', 'straight', 'arched', 'worried'];
 export const MOUTHS = [
@@ -80,6 +92,7 @@ export const HEADS_BY_SHAPE = {
   drop: ['none', 'halo'],
   oval: HEADS,
   egg: HEADS,
+  custom: HEADS,
 };
 export const ACCESSORIES_BY_SHAPE = {
   wobbi: ACCESSORIES,
@@ -90,6 +103,7 @@ export const ACCESSORIES_BY_SHAPE = {
   drop: ACCESSORIES,
   oval: ACCESSORIES,
   egg: ACCESSORIES,
+  custom: ACCESSORIES,
 };
 export const headsForShape = (shape) => HEADS_BY_SHAPE[shape] || ['none'];
 export const accessoriesForShape = (shape) =>
@@ -141,7 +155,21 @@ export function normalizeMotion(value = {}) {
       .map((m) => ({ type: m.type, enabled: !!m.enabled })),
   };
 }
-export function createConfig(overrides = {}) {
+const LEGACY_EYE_REMAP = {
+  glossy: { eyes: 'classic', iris: 'glossy' },
+  money: { eyes: 'classic', iris: 'money' },
+  heart: { eyes: 'classic', iris: 'heart' },
+  star: { eyes: 'classic', iris: 'star' },
+};
+export function createConfig(rawOverrides = {}) {
+  const legacyEyes = LEGACY_EYE_REMAP[rawOverrides.eyes];
+  const overrides = legacyEyes
+    ? {
+        ...rawOverrides,
+        eyes: legacyEyes.eyes,
+        iris: rawOverrides.iris ?? legacyEyes.iris,
+      }
+    : rawOverrides;
   const moves = {
     idle: ['blink', 'eye-movement'],
     happy: ['bounce', 'squash', 'tilt', 'blink'],
@@ -163,6 +191,7 @@ export function createConfig(overrides = {}) {
     preset: 'wobbi',
     shape: 'wobbi',
     eyes: 'classic',
+    iris: 'dot',
     nose: 'none',
     brows: 'none',
     mouth: 'none',
@@ -175,6 +204,16 @@ export function createConfig(overrides = {}) {
     lashColor: '#111218',
     eyeOutlineColor: '#111218',
     eyeOutlineWidth: 0,
+    noseOutlineColor: '#111218',
+    noseOutlineWidth: 0,
+    browOutlineColor: '#111218',
+    browOutlineWidth: 0,
+    mouthOutlineColor: '#111218',
+    mouthOutlineWidth: 0,
+    headOutlineColor: '#111218',
+    headOutlineWidth: 0,
+    accessoryOutlineColor: '#111218',
+    accessoryOutlineWidth: 0,
     head: 'none',
     accessory: 'none',
     accessoryColor: '#262331',
@@ -183,6 +222,12 @@ export function createConfig(overrides = {}) {
     outlineColor: '#ffffff',
     outlineWidth: 0,
     background: { type: 'solid', color: '#f1edff' },
+    customShape: { points: DEFAULT_CUSTOM_SHAPE_POINTS },
+    customEyeShape: {
+      symmetric: true,
+      left: { points: DEFAULT_CUSTOM_EYE_POINTS },
+      right: { points: DEFAULT_CUSTOM_EYE_POINTS },
+    },
     size: 256,
     defaultState: 'idle',
     reactions: Object.fromEntries(
@@ -214,6 +259,19 @@ export function createConfig(overrides = {}) {
     ...defaults,
     ...knownOverrides,
     background: { ...defaults.background, ...overrides.background },
+    customShape: { ...defaults.customShape, ...overrides.customShape },
+    customEyeShape: {
+      ...defaults.customEyeShape,
+      ...overrides.customEyeShape,
+      left: {
+        ...defaults.customEyeShape.left,
+        ...overrides.customEyeShape?.left,
+      },
+      right: {
+        ...defaults.customEyeShape.right,
+        ...overrides.customEyeShape?.right,
+      },
+    },
     export: { ...defaults.export, ...overrides.export },
     accessibility: { ...defaults.accessibility, ...overrides.accessibility },
     reactions: Object.fromEntries(
@@ -236,6 +294,7 @@ const CONFIG_KEYS = [
   'preset',
   'shape',
   'eyes',
+  'iris',
   'nose',
   'brows',
   'mouth',
@@ -248,6 +307,16 @@ const CONFIG_KEYS = [
   'lashColor',
   'eyeOutlineColor',
   'eyeOutlineWidth',
+  'noseOutlineColor',
+  'noseOutlineWidth',
+  'browOutlineColor',
+  'browOutlineWidth',
+  'mouthOutlineColor',
+  'mouthOutlineWidth',
+  'headOutlineColor',
+  'headOutlineWidth',
+  'accessoryOutlineColor',
+  'accessoryOutlineWidth',
   'head',
   'accessory',
   'accessoryColor',
@@ -256,6 +325,8 @@ const CONFIG_KEYS = [
   'outlineColor',
   'outlineWidth',
   'background',
+  'customShape',
+  'customEyeShape',
   'size',
   'defaultState',
   'reactions',
@@ -312,6 +383,7 @@ export function validateConfig(config) {
     errors.push('Mascot name must contain between 1 and 40 characters.');
   if (!SHAPES.includes(config.shape)) errors.push('Choose a supported shape.');
   if (!EYES.includes(config.eyes)) errors.push('Choose supported eyes.');
+  if (!IRIS.includes(config.iris)) errors.push('Choose a supported iris.');
   if (!NOSES.includes(config.nose)) errors.push('Choose a supported nose.');
   if (!BROWS.includes(config.brows)) errors.push('Choose supported eyebrows.');
   if (!MOUTHS.includes(config.mouth)) errors.push('Choose a supported mouth.');
@@ -332,6 +404,16 @@ export function validateConfig(config) {
   )
     errors.push('Invalid eye outline.');
   for (const key of [
+    'noseOutlineWidth',
+    'browOutlineWidth',
+    'mouthOutlineWidth',
+    'headOutlineWidth',
+    'accessoryOutlineWidth',
+  ]) {
+    if (!Number.isFinite(config[key]) || config[key] < 0 || config[key] > 6)
+      errors.push(`Invalid ${key}.`);
+  }
+  for (const key of [
     'color',
     'mouthColor',
     'noseColor',
@@ -341,6 +423,11 @@ export function validateConfig(config) {
     'pupilColor',
     'lashColor',
     'eyeOutlineColor',
+    'noseOutlineColor',
+    'browOutlineColor',
+    'mouthOutlineColor',
+    'headOutlineColor',
+    'accessoryOutlineColor',
     'accessoryColor',
     'accentColor',
   ]) {
@@ -353,6 +440,41 @@ export function validateConfig(config) {
     !['solid', 'transparent'].includes(config.background?.type)
   )
     errors.push('Invalid background.');
+  if (
+    !config.customShape ||
+    typeof config.customShape !== 'object' ||
+    !hasOnlyKeys(config.customShape, ['points']) ||
+    !Array.isArray(config.customShape.points) ||
+    config.customShape.points.length !== CUSTOM_SHAPE_POINT_COUNT ||
+    config.customShape.points.some(
+      (radius) =>
+        !Number.isFinite(radius) ||
+        radius < CUSTOM_SHAPE_MIN_RADIUS ||
+        radius > CUSTOM_SHAPE_MAX_RADIUS,
+    )
+  )
+    errors.push('Invalid custom shape.');
+  const isValidEyeSidePoints = (side) =>
+    side &&
+    typeof side === 'object' &&
+    hasOnlyKeys(side, ['points']) &&
+    Array.isArray(side.points) &&
+    side.points.length === CUSTOM_EYE_POINT_COUNT &&
+    side.points.every(
+      (radius) =>
+        Number.isFinite(radius) &&
+        radius >= CUSTOM_EYE_MIN_RADIUS &&
+        radius <= CUSTOM_EYE_MAX_RADIUS,
+    );
+  if (
+    !config.customEyeShape ||
+    typeof config.customEyeShape !== 'object' ||
+    !hasOnlyKeys(config.customEyeShape, ['symmetric', 'left', 'right']) ||
+    typeof config.customEyeShape.symmetric !== 'boolean' ||
+    !isValidEyeSidePoints(config.customEyeShape.left) ||
+    !isValidEyeSidePoints(config.customEyeShape.right)
+  )
+    errors.push('Invalid custom eye shape.');
   if (!Number.isFinite(config.size) || config.size < 48 || config.size > 512)
     errors.push('Size must be between 48 and 512.');
   if (

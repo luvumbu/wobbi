@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Mascot } from '../mascot/Mascot.jsx';
 import { DisclosurePanel } from './Disclosure.jsx';
+import { RandomizeButton } from './RandomizeButton.jsx';
+import { pickRandomValue } from './randomize.js';
 
 function contrastInk(hex) {
   const channels = hex
@@ -29,7 +31,15 @@ export function ChoiceGrid({
   collapsedCount = values.length,
   itemLabel = 'options',
   disabledValues = [],
+  extraHeaderButton,
+  headerPanel,
+  extraTiles = [],
 }) {
+  const randomizableValues = values.filter(
+    (value) => !disabledValues.includes(value),
+  );
+  const randomize = () =>
+    onChange(pickRandomValue(randomizableValues, Math.random));
   const selectedIsHidden = values.indexOf(config[field]) >= collapsedCount;
   const [expanded, setExpanded] = useState(() => selectedIsHidden);
   const canToggle = values.length > collapsedCount;
@@ -41,7 +51,13 @@ export function ChoiceGrid({
   const extraValues = values.filter((value) => !primaryValues.includes(value));
   const renderChoice = (value) => {
     const c = { ...config, [field]: value };
-    const contextualPreview = ['eyes', 'mouth', 'nose', 'brows'].includes(kind);
+    const contextualPreview = [
+      'eyes',
+      'iris',
+      'mouth',
+      'nose',
+      'brows',
+    ].includes(kind);
     return (
       <button
         type="button"
@@ -60,7 +76,7 @@ export function ChoiceGrid({
         }
         onClick={() => onChange(value)}
       >
-        {kind === 'eyes' ? (
+        {kind === 'eyes' || kind === 'iris' ? (
           <EyePreview config={c} />
         ) : kind === 'mouth' ? (
           <MouthPreview config={c} />
@@ -86,9 +102,30 @@ export function ChoiceGrid({
       </button>
     );
   };
+  const renderExtraTile = (tile) => (
+    <button
+      type="button"
+      key={tile.key}
+      className={`choice ${kind}-choice choice-custom`}
+      aria-label={title + ' : ' + tile.label}
+      aria-pressed={tile.pressed}
+      onClick={tile.onClick}
+    >
+      <span className="choice-custom-badge" aria-hidden="true" />
+      <Mascot config={tile.previewConfig} playing={false} size={54} />
+      <span>{tile.label}</span>
+    </button>
+  );
   return (
     <section className="choice-section">
-      <h2>{title}</h2>
+      <div className="choice-section-heading">
+        <h2>{title}</h2>
+        <div className="choice-section-heading-actions">
+          {extraHeaderButton}
+          <RandomizeButton label={title} onClick={randomize} />
+        </div>
+      </div>
+      {headerPanel}
       <div className={`choice-grid columns-${columns}`}>
         {primaryValues.map(renderChoice)}
       </div>
@@ -111,6 +148,13 @@ export function ChoiceGrid({
             : `Voir ${values.length - collapsedCount} ${itemLabel} de plus`}
           <ChevronDown size={15} aria-hidden="true" />
         </button>
+      )}
+      {extraTiles.length > 0 && (
+        <div
+          className={`choice-grid columns-${columns} choice-grid-extra-tiles`}
+        >
+          {extraTiles.map(renderExtraTile)}
+        </div>
       )}
       {children}
     </section>
