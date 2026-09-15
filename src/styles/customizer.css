@@ -320,6 +320,26 @@
   background: var(--soft);
   box-shadow: inset 0 0 0 1px #7950d5;
 }
+.spin-toggle-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.spin-toggle-button:hover {
+  color: #7751ca;
+  background: var(--soft);
+  box-shadow: inset 0 0 0 1px #7950d5;
+}
+.spin-toggle-button[aria-pressed='true'] {
+  color: #fff;
+  background: #7950d5;
+  box-shadow: inset 0 0 0 1px #7950d5;
+}
 .choice:disabled {
   cursor: not-allowed;
   filter: grayscale(0.5);

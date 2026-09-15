@@ -9,6 +9,8 @@ import {
   customShapeToPath,
   customEyeToPath,
   customEyeExtent,
+  customIrisToPath,
+  customHairToPath,
 } from './custom-shape.js';
 
 const EYE_SYMBOLS = { money: '$', heart: '♥', star: '★' };
@@ -105,6 +107,22 @@ export function renderParts(h, config, state = 'idle') {
       ? customEyeExtent(customEyePoints)
       : { width: 0, height: 0 };
     const symbol = EYE_SYMBOLS[iris];
+    // When enabled, every iris/pupil style spins continuously in place; the
+    // spin lives on an inner group nested inside 'pupil' (rather than on
+    // 'pupil' itself) so it never fights with the gaze-follow transform the
+    // motion runtime writes to that same attribute every frame.
+    const irisSpinTransform = config.irisSpin
+      ? n('animateTransform', {
+          attributeName: 'transform',
+          type: 'rotate',
+          from: `0 ${x} ${y}`,
+          to: `360 ${x} ${y}`,
+          dur: '3s',
+          repeatCount: 'indefinite',
+        })
+      : null;
+    const pupilGroup = (...children) =>
+      group('pupil', n('g', {}, ...children, irisSpinTransform));
     const capsule = type === 'capsules' || type === 'asymmetric';
     const wink = type === 'wink' && i === 1 && !startled;
     const hasLashes = LASHED_EYES.includes(type);
@@ -125,7 +143,10 @@ export function renderParts(h, config, state = 'idle') {
             ? 7
             : capsule
               ? 10
-              : type === 'round'
+              : type === 'round' ||
+                  type === 'lashed' ||
+                  type === 'bubble' ||
+                  type === 'winged'
                 ? 21
                 : type === 'side-eye'
                   ? 24
@@ -140,7 +161,10 @@ export function renderParts(h, config, state = 'idle') {
             ? 8
             : pixel
               ? 17
-              : type === 'round'
+              : type === 'round' ||
+                  type === 'lashed' ||
+                  type === 'bubble' ||
+                  type === 'winged'
                 ? 21
                 : type === 'side-eye'
                   ? 25
@@ -184,6 +208,20 @@ export function renderParts(h, config, state = 'idle') {
         }),
       );
     } else {
+      if (type === 'bubble') {
+        // A smaller circle peeking out from behind the main globe, giving
+        // an overlapping "double bubble" silhouette.
+        const bumpDir = i ? 1 : -1;
+        eyeParts.push(
+          ellipse(
+            x + bumpDir * width * 0.72,
+            y - height * 0.15,
+            width * 0.5,
+            height * 0.5,
+            { fill: config.eyeColor, ...eyeStroke },
+          ),
+        );
+      }
       eyeParts.push(
         custom
           ? path(customEyeToPath(customEyePoints, x, y, customEyeMirror), {
@@ -207,6 +245,37 @@ export function renderParts(h, config, state = 'idle') {
                 ...eyeStroke,
               }),
       );
+      if (type === 'lashed') {
+        // Three upward lash spikes fanning off the top of the globe,
+        // sized off this globe's own extent so they scale with it.
+        eyeParts.push(
+          ...[-1, 0, 1].map((offset) => {
+            const spikeX = x + offset * width * 0.45;
+            const baseY = y - height * 0.78;
+            const tipX = spikeX + offset * width * 0.25;
+            const tipY = y - height - Math.max(6, height * 0.5);
+            return path(
+              `M${spikeX - 1.6} ${baseY} L${tipX} ${tipY} L${spikeX + 1.6} ${baseY}Z`,
+              { fill: lashInk, 'data-eye-lash': type },
+            );
+          }),
+        );
+      }
+      if (type === 'winged') {
+        // A small triangular flick at the globe's outer top corner, giving
+        // a cat-eye / winged-liner silhouette.
+        const wingDir = i ? 1 : -1;
+        const wingBaseX = x + wingDir * width * 0.75;
+        const wingBaseY = y - height * 0.35;
+        const wingTipX = x + wingDir * (width + 10);
+        const wingTipY = y - height * 0.9;
+        eyeParts.push(
+          path(
+            `M${wingBaseX} ${wingBaseY - 3} L${wingTipX} ${wingTipY} L${wingBaseX + wingDir * 4} ${wingBaseY + 4}Z`,
+            { fill: config.eyeColor, ...eyeStroke },
+          ),
+        );
+      }
       if (symbol) {
         // Glyph is always sized off this globe's own extent, so it can never
         // spill outside the eye-white shape behind it, whatever globe shape
@@ -217,18 +286,186 @@ export function renderParts(h, config, state = 'idle') {
         );
         eyeParts.push(
           n(
-            'text',
-            {
-              x,
-              y: y + fontSize * 0.07,
+            'g',
+            {},
+            n(
+              'text',
+              {
+                x,
+                y: y + fontSize * 0.07,
+                fill: pupilInk,
+                fontSize,
+                fontWeight: 900,
+                textAnchor: 'middle',
+                dominantBaseline: 'middle',
+                'data-eye-symbol': iris,
+              },
+              symbol,
+            ),
+            irisSpinTransform,
+          ),
+        );
+      } else if (iris === 'swirl') {
+        // A generic "manga power eye" motif: a coloured disc with small
+        // comma marks radiating from the centre. The tomoe pattern is a
+        // traditional Japanese heraldic symbol, not any single work's
+        // trademark, and is sized off this globe's own extent so it can
+        // never spill outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const markInk = closedEyeColor(pupilInk);
+        const markCount = 3;
+        const headOffset = discRadius * 0.48;
+        const headR = discRadius * 0.22;
+        const marks = Array.from({ length: markCount }, (_, markIndex) => {
+          const angleDeg = (markIndex / markCount) * 360;
+          const tailPath = `M${x} ${y - headOffset} Q${x + discRadius * 0.42} ${y - headOffset * 0.15} ${x + discRadius * 0.16} ${y + headOffset * 0.62} Q${x - discRadius * 0.05} ${y + headOffset * 0.28} ${x} ${y - headOffset}Z`;
+          return n(
+            'g',
+            { transform: `rotate(${angleDeg} ${x} ${y})` },
+            path(tailPath, { fill: markInk }),
+            ellipse(x, y - headOffset, headR, headR, { fill: markInk }),
+          );
+        });
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, { fill: pupilInk }),
+            config.depth === 'flat'
+              ? null
+              : ellipse(x, y, discRadius, discRadius, {
+                  fill: '#000000',
+                  opacity: 0.12,
+                  pointerEvents: 'none',
+                }),
+            ...marks,
+            ellipse(x, y, discRadius, discRadius, {
+              fill: 'none',
+              stroke: markInk,
+              strokeWidth: Math.max(1, discRadius * 0.08),
+            }),
+          ),
+        );
+      } else if (iris === 'rings') {
+        // A generic "rippled eye" motif: concentric rings around a small
+        // centre dot. Sized off this globe's own extent so the rings can
+        // never spill outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const ringInk = closedEyeColor(pupilInk);
+        const ringCount = 3;
+        const rings = Array.from({ length: ringCount }, (_, ringIndex) => {
+          const r = discRadius * ((ringIndex + 1) / (ringCount + 1));
+          return ellipse(x, y, r, r, {
+            fill: 'none',
+            stroke: ringInk,
+            strokeWidth: Math.max(1, discRadius * 0.09),
+          });
+        });
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, { fill: pupilInk }),
+            config.depth === 'flat'
+              ? null
+              : ellipse(x, y, discRadius, discRadius, {
+                  fill: '#000000',
+                  opacity: 0.12,
+                  pointerEvents: 'none',
+                }),
+            ...rings,
+            ellipse(x, y, discRadius * 0.14, discRadius * 0.14, {
+              fill: ringInk,
+            }),
+          ),
+        );
+      } else if (iris === 'pinwheel') {
+        // A generic "star-burst eye" motif: angular blades radiating from
+        // the centre, sized off this globe's own extent so they can never
+        // spill outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const markInk = closedEyeColor(pupilInk);
+        const bladeCount = 4;
+        const bladeLen = discRadius * 0.85;
+        const bladeHalf = discRadius * 0.22;
+        const blades = Array.from({ length: bladeCount }, (_, bladeIndex) => {
+          const angleDeg = (bladeIndex / bladeCount) * 360;
+          const bladePath = `M${x} ${y} L${x - bladeHalf} ${y - bladeLen} Q${x} ${y - bladeLen - bladeHalf * 0.5} ${x + bladeHalf} ${y - bladeLen} Z`;
+          return n(
+            'g',
+            { transform: `rotate(${angleDeg} ${x} ${y})` },
+            path(bladePath, { fill: markInk }),
+          );
+        });
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, { fill: pupilInk }),
+            config.depth === 'flat'
+              ? null
+              : ellipse(x, y, discRadius, discRadius, {
+                  fill: '#000000',
+                  opacity: 0.12,
+                  pointerEvents: 'none',
+                }),
+            ...blades,
+            ellipse(x, y, discRadius * 0.16, discRadius * 0.16, {
+              fill: markInk,
+            }),
+            ellipse(x, y, discRadius, discRadius, {
+              fill: 'none',
+              stroke: markInk,
+              strokeWidth: Math.max(1, discRadius * 0.08),
+            }),
+          ),
+        );
+      } else if (iris === 'veil') {
+        // A generic "veined eye" motif: a pale disc with fine veins and no
+        // visible dark pupil, sized off this globe's own extent so it can
+        // never spill outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const veinInk = closedEyeColor(pupilInk);
+        const veinCount = 8;
+        const veins = Array.from({ length: veinCount }, (_, veinIndex) => {
+          const angleDeg = (veinIndex / veinCount) * 360;
+          return n(
+            'g',
+            { transform: `rotate(${angleDeg} ${x} ${y})` },
+            path(
+              `M${x} ${y - discRadius * 0.22} L${x} ${y - discRadius * 0.92}`,
+              {
+                stroke: veinInk,
+                strokeWidth: Math.max(1, discRadius * 0.06),
+                strokeLinecap: 'round',
+                fill: 'none',
+                opacity: 0.55,
+              },
+            ),
+          );
+        });
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, { fill: pupilInk }),
+            config.depth === 'flat'
+              ? null
+              : ellipse(x, y, discRadius, discRadius, {
+                  fill: '#000000',
+                  opacity: 0.08,
+                  pointerEvents: 'none',
+                }),
+            ...veins,
+            ellipse(x, y, discRadius * 0.18, discRadius * 0.18, {
+              fill: veinInk,
+            }),
+            ellipse(x, y, discRadius, discRadius, {
+              fill: 'none',
+              stroke: veinInk,
+              strokeWidth: Math.max(1, discRadius * 0.07),
+            }),
+          ),
+        );
+      } else if (iris === 'custom') {
+        const scale = Math.min(width, height) * 0.6;
+        eyeParts.push(
+          pupilGroup(
+            path(customIrisToPath(config.customIris.points, x, y, scale), {
               fill: pupilInk,
-              fontSize,
-              fontWeight: 900,
-              textAnchor: 'middle',
-              dominantBaseline: 'middle',
-              'data-eye-symbol': iris,
-            },
-            symbol,
+            }),
           ),
         );
       } else {
@@ -258,8 +495,7 @@ export function renderParts(h, config, state = 'idle') {
           pupilHeight * 0.5,
         );
         eyeParts.push(
-          group(
-            'pupil',
+          pupilGroup(
             ellipse(pupilX, pupilY, pupilWidth, pupilHeight, {
               fill: pupilInk,
             }),
@@ -411,7 +647,66 @@ export function renderParts(h, config, state = 'idle') {
       : noseNeedsOutline
         ? { stroke: closedEyeInk, strokeWidth: 2.5 }
         : {};
+  const noseLineBehind = (d, strokeWidth) =>
+    config.noseOutlineWidth > 0
+      ? path(d, {
+          fill: 'none',
+          stroke: config.noseOutlineColor,
+          strokeWidth: strokeWidth + config.noseOutlineWidth * 2,
+          strokeLinecap: 'round',
+        })
+      : null;
   let nose = null;
+  if (config.nose === 'button')
+    nose = group(
+      'nose',
+      ellipse(128, noseY, 9, 7, { fill: config.noseColor, ...noseOutline }),
+      ellipse(124, noseY + 3, 1.6, 1.1, { fill: closedEyeInk, opacity: 0.5 }),
+      ellipse(132, noseY + 3, 1.6, 1.1, { fill: closedEyeInk, opacity: 0.5 }),
+      ellipse(125, noseY - 2.5, 2, 1.5, { fill: '#ffffff', opacity: 0.7 }),
+    );
+  if (config.nose === 'hook') {
+    const hookPath = `M123 ${noseY - 11} Q113 ${noseY - 2} 118 ${noseY + 7} Q121 ${noseY + 11} 128 ${noseY + 9}`;
+    nose = group(
+      'nose',
+      noseLineBehind(hookPath, 3),
+      path(hookPath, {
+        fill: 'none',
+        stroke: config.noseColor,
+        strokeWidth: 3,
+        strokeLinecap: 'round',
+      }),
+    );
+  }
+  if (config.nose === 'nostrils') {
+    const leftPath = `M124 ${noseY - 2} Q121.5 ${noseY + 3} 125 ${noseY + 5.5}`;
+    const rightPath = `M132 ${noseY - 2} Q134.5 ${noseY + 3} 131 ${noseY + 5.5}`;
+    nose = group(
+      'nose',
+      noseLineBehind(leftPath, 2),
+      noseLineBehind(rightPath, 2),
+      path(leftPath, {
+        fill: 'none',
+        stroke: config.noseColor,
+        strokeWidth: 2,
+        strokeLinecap: 'round',
+      }),
+      path(rightPath, {
+        fill: 'none',
+        stroke: config.noseColor,
+        strokeWidth: 2,
+        strokeLinecap: 'round',
+      }),
+    );
+  }
+  if (config.nose === 'pointy')
+    nose = group(
+      'nose',
+      path(`M128 ${noseY - 9} L134 ${noseY + 6} L122 ${noseY + 6}Z`, {
+        fill: config.noseColor,
+        ...noseOutline,
+      }),
+    );
   if (config.nose === 'dot')
     nose = group(
       'nose',
@@ -641,6 +936,7 @@ export function renderParts(h, config, state = 'idle') {
   const crownRight = headX + crownHalf;
   const crownInnerHalf = Math.max(22, crownHalf * 0.38);
   const head = [];
+  const frontHead = [];
   const headOutline =
     config.headOutlineWidth > 0
       ? {
@@ -659,7 +955,7 @@ export function renderParts(h, config, state = 'idle') {
   if (config.head === 'tuft') {
     const tuftPath = `M${headX - 20} ${headY + 9} Q${headX - crownHalf * 0.58} ${headY - 35} ${headX - 7} ${headY - 29} Q${headX + 10} ${headY - 30} ${headX - 6} ${headY - 11} Q${headX + crownHalf * 0.55} ${headY - 29} ${headX + 29} ${headY + 8}Z`;
     head.push(
-      path(tuftPath, { fill: config.color, ...headOutline }),
+      path(tuftPath, { fill: config.headColor, ...headOutline }),
       depthLayer(tuftPath, 'tuft'),
     );
   }
@@ -677,7 +973,7 @@ export function renderParts(h, config, state = 'idle') {
         : null,
       path(curlPath, {
         fill: 'none',
-        stroke: config.color,
+        stroke: config.headColor,
         strokeWidth: 11,
         strokeLinecap: 'round',
         strokeLinejoin: 'round',
@@ -695,6 +991,134 @@ export function renderParts(h, config, state = 'idle') {
           }),
     );
   }
+  if (config.head === 'spiky') {
+    const spikyPath = [-16, 0, 16]
+      .map((offset) => {
+        const baseX = headX + offset;
+        const tipY = headY - 33 + Math.abs(offset) * 0.25;
+        return `M${baseX - 9} ${headY + 8} L${baseX} ${tipY} L${baseX + 9} ${headY + 8}Z`;
+      })
+      .join(' ');
+    head.push(
+      path(spikyPath, { fill: config.headColor, ...headOutline }),
+      depthLayer(spikyPath, 'spiky'),
+    );
+  }
+  if (config.head === 'bun') {
+    const bunY = headY - 22;
+    head.push(
+      group(
+        'bun',
+        ellipse(headX, bunY, 15, 14, {
+          fill: config.headColor,
+          ...headOutline,
+        }),
+        config.depth === 'flat'
+          ? null
+          : ellipse(headX, bunY, 15, 14, {
+              fill: `url(#${depthId})`,
+              'data-detail-depth': 'bun',
+              pointerEvents: 'none',
+            }),
+        path(
+          `M${headX - 14} ${bunY + 3} Q${headX} ${bunY + 11} ${headX + 14} ${bunY + 3}`,
+          {
+            fill: 'none',
+            stroke: config.accentColor,
+            strokeWidth: 3,
+            strokeLinecap: 'round',
+            opacity: 0.85,
+          },
+        ),
+      ),
+    );
+  }
+  if (config.head === 'fringe') {
+    const fringeSpan = Math.min(38, crownHalf * 0.66);
+    const fringePath = `M${headX - fringeSpan} ${headY + 14} Q${headX - fringeSpan * 0.5} ${headY - 22} ${headX} ${headY - 14} Q${headX + fringeSpan * 0.5} ${headY - 22} ${headX + fringeSpan} ${headY + 14} Q${headX} ${headY + 2} ${headX - fringeSpan} ${headY + 14}Z`;
+    head.push(
+      path(fringePath, { fill: config.headColor, ...headOutline }),
+      depthLayer(fringePath, 'fringe'),
+    );
+  }
+  if (config.head === 'blaze') {
+    // A dramatic, asymmetric "flame" silhouette: uneven curved spikes of
+    // varying height and lean, distinct from the plainer "spiky" style.
+    const spikeDefs = [
+      { offset: -30, height: 30, lean: -6 },
+      { offset: -20, height: 52, lean: -4 },
+      { offset: -10, height: 40, lean: 2 },
+      { offset: 0, height: 62, lean: 0 },
+      { offset: 10, height: 42, lean: -2 },
+      { offset: 20, height: 56, lean: 5 },
+      { offset: 30, height: 32, lean: 8 },
+    ];
+    const blazePath = spikeDefs
+      .map(({ offset, height, lean }) => {
+        const baseX = headX + offset;
+        const tipX = baseX + lean;
+        const tipY = headY - height;
+        const baseWidth = Math.max(5, 8 - Math.abs(offset) * 0.05);
+        return `M${baseX - baseWidth} ${headY + 8} Q${baseX - baseWidth * 0.3} ${headY - height * 0.5} ${tipX} ${tipY} Q${baseX + baseWidth * 0.3} ${headY - height * 0.5} ${baseX + baseWidth} ${headY + 8}Z`;
+      })
+      .join(' ');
+    head.push(
+      path(blazePath, { fill: config.headColor, ...headOutline }),
+      depthLayer(blazePath, 'blaze'),
+    );
+  }
+  if (config.head === 'mane') {
+    // One bold sweeping lock: a wide rounded base at the crown tapering to
+    // a fine point, like a single long strand swept up and to the side.
+    // Kept above the body's own top curve (like tuft/blaze) so it isn't
+    // hidden behind it, with a slimmer second strand for volume.
+    const baseX = headX - 6;
+    const baseY = headY + 6;
+    const tipX = headX + 46;
+    const tipY = headY - 58;
+    const manePath = `M${baseX} ${baseY - 15} Q${headX + 26} ${headY - 40} ${tipX} ${tipY} Q${headX + 14} ${headY - 24} ${baseX + 2} ${baseY + 14} Q${baseX - 16} ${baseY + 8} ${baseX - 15} ${baseY - 5} Q${baseX - 15} ${baseY - 13} ${baseX} ${baseY - 15}Z`;
+    const strandTipX = headX + 26;
+    const strandTipY = headY - 38;
+    const strandPath = `M${baseX + 6} ${baseY - 10} Q${headX + 14} ${headY - 22} ${strandTipX} ${strandTipY} Q${headX + 6} ${headY - 12} ${baseX + 4} ${baseY + 2}Z`;
+    const fullManePath = `${manePath} ${strandPath}`;
+    head.push(
+      path(fullManePath, { fill: config.headColor, ...headOutline }),
+      depthLayer(fullManePath, 'mane'),
+    );
+  }
+  if (config.head === 'wild-mane') {
+    const spikeOffsets = [-34, -22, -11, 0, 11, 22, 34];
+    const spikeHeights = [20, 46, 30, 52, 28, 44, 18];
+    const wildPath = spikeOffsets
+      .map((offset, index) => {
+        const baseX = headX + offset;
+        const tipY = headY - spikeHeights[index];
+        const tipX = baseX + offset * 0.15;
+        return `M${baseX - 9} ${headY + 10} L${tipX} ${tipY} L${baseX + 9} ${headY + 10}Z`;
+      })
+      .join(' ');
+    const sideLeftPath = `M${headX - crownHalf * 0.7} ${headY + 4} Q${headX - crownHalf * 1.15} ${headY - 6} ${headX - crownHalf * 0.95} ${headY + 22}Z`;
+    const sideRightPath = `M${headX + crownHalf * 0.7} ${headY + 4} Q${headX + crownHalf * 1.15} ${headY - 6} ${headX + crownHalf * 0.95} ${headY + 22}Z`;
+    const fullPath = `${wildPath} ${sideLeftPath} ${sideRightPath}`;
+    head.push(
+      path(fullPath, { fill: config.headColor, ...headOutline }),
+      depthLayer(fullPath, 'wild-mane'),
+    );
+  }
+  if (config.head === 'custom-hair') {
+    // Unlike every other hairstyle, this one is drawn in front of the body
+    // (see frontHead below) so the user has total freedom over height and
+    // width with no risk of it being clipped by the body silhouette.
+    const customHairPath = customHairToPath(
+      config.customHair.points,
+      headX,
+      headY,
+    );
+    frontHead.push(
+      path(customHairPath, { fill: config.headColor, ...headOutline }),
+      depthLayer(customHairPath, 'custom-hair'),
+    );
+  }
   if (config.head === 'bunny-ears')
     [0, 1].forEach((i) => {
       const direction = i ? 1 : -1;
@@ -707,7 +1131,7 @@ export function renderParts(h, config, state = 'idle') {
       head.push(
         group(
           `bunny-ear-${i}`,
-          path(outerPath, { fill: config.color, ...headOutline }),
+          path(outerPath, { fill: config.headColor, ...headOutline }),
           depthLayer(outerPath, `bunny-ear-${i}`),
           path(innerPath, { fill: config.accentColor, opacity: 0.9 }),
         ),
@@ -724,7 +1148,7 @@ export function renderParts(h, config, state = 'idle') {
       head.push(
         group(
           `ear-${i}`,
-          path(outerPath, { fill: config.color, ...headOutline }),
+          path(outerPath, { fill: config.headColor, ...headOutline }),
           depthLayer(outerPath, `ear-${i}`),
           path(innerPath, { fill: config.accentColor }),
         ),
@@ -740,7 +1164,10 @@ export function renderParts(h, config, state = 'idle') {
       head.push(
         group(
           `round-ear-${i}`,
-          ellipse(earX, earY, 24, 25, { fill: config.color, ...headOutline }),
+          ellipse(earX, earY, 24, 25, {
+            fill: config.headColor,
+            ...headOutline,
+          }),
           config.depth === 'flat'
             ? null
             : ellipse(earX, earY, 24, 25, {
@@ -1122,6 +1549,17 @@ export function renderParts(h, config, state = 'idle') {
           'data-depth': config.depth,
           pointerEvents: 'none',
         }),
+    frontHead.length
+      ? n(
+          'g',
+          {
+            'data-part': 'head-front',
+            'data-motion': 'head',
+            'data-fit-shape': config.shape,
+          },
+          ...frontHead,
+        )
+      : null,
     group(
       'gaze',
       n(

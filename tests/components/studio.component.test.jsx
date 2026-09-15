@@ -90,7 +90,7 @@ it('previews white feature colours against the selected body colour', () => {
 it('keeps each face preview focused on the feature being chosen', () => {
   const { container } = render(<App />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 3 nez de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -133,7 +133,7 @@ it('customizes illustrated parts and reverses an accessory edit', () => {
   );
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Voir 8 regards de plus',
+      name: 'Voir 11 regards de plus',
       exact: true,
     }),
   );
@@ -231,7 +231,7 @@ it('expands and reduces the compact shape, eye and mouth grids', () => {
 
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Voir 8 regards de plus',
+      name: 'Voir 11 regards de plus',
       exact: true,
     }),
   );
@@ -286,7 +286,7 @@ it('keeps the eye globe shape and the iris fully independent, each with its own 
 
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Voir 8 regards de plus',
+      name: 'Voir 11 regards de plus',
       exact: true,
     }),
   );
@@ -312,7 +312,7 @@ it('offers a lash colour only for eye families that draw lashes', () => {
   const { container } = render(<App />);
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Voir 8 regards de plus',
+      name: 'Voir 11 regards de plus',
       exact: true,
     }),
   );
@@ -344,7 +344,7 @@ it('offers a lash colour only for eye families that draw lashes', () => {
 it('can collapse a choice grid while an extra option is selected', () => {
   render(<App />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 3 nez de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -365,7 +365,7 @@ it('can collapse a choice grid while an extra option is selected', () => {
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   expect(
-    screen.getByRole('button', { name: 'Voir 3 nez de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
   ).toHaveAttribute('aria-expanded', 'false');
 });
 it.each(['Museau', 'Bec'])(
@@ -376,7 +376,7 @@ it.each(['Museau', 'Bec'])(
       screen.getByRole('button', { name: 'Bouche : Sourire', exact: true }),
     );
     fireEvent.click(
-      screen.getByRole('button', { name: 'Voir 3 nez de plus', exact: true }),
+      screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
     );
     fireEvent.click(
       screen.getByRole('button', {

@@ -46,7 +46,7 @@ test('brand identity, live gaze, customization, undo, project round trip', async
     .not.toBe(gaze);
   await page.getByRole('button', { name: 'Forme : Rond', exact: true }).click();
   await page
-    .getByRole('button', { name: 'Voir 8 regards de plus', exact: true })
+    .getByRole('button', { name: 'Voir 11 regards de plus', exact: true })
     .click();
   await page
     .getByRole('button', { name: 'Yeux : Points', exact: true })

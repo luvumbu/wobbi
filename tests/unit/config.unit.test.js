@@ -106,6 +106,13 @@ describe('mascot domain', () => {
       'none',
       'tuft',
       'curl',
+      'spiky',
+      'bun',
+      'fringe',
+      'blaze',
+      'mane',
+      'wild-mane',
+      'custom-hair',
       'round-ears',
       'horns',
       'halo',
@@ -114,6 +121,13 @@ describe('mascot domain', () => {
       'none',
       'tuft',
       'curl',
+      'spiky',
+      'bun',
+      'fringe',
+      'blaze',
+      'mane',
+      'wild-mane',
+      'custom-hair',
       'horns',
       'halo',
     ]);
@@ -128,9 +142,9 @@ describe('mascot domain', () => {
     );
   });
   it('offers a broader but validated expression system', () => {
-    expect(EYES).toHaveLength(11);
+    expect(EYES).toHaveLength(14);
     expect(EYES).toEqual(expect.arrayContaining(['round', 'side-eye', 'wink']));
-    expect(IRIS).toHaveLength(5);
+    expect(IRIS).toHaveLength(10);
     expect(IRIS).toEqual(
       expect.arrayContaining(['dot', 'glossy', 'money', 'heart', 'star']),
     );
@@ -139,6 +153,10 @@ describe('mascot domain', () => {
       'none',
       'dot',
       'round',
+      'button',
+      'hook',
+      'nostrils',
+      'pointy',
       'muzzle',
       'moustache',
       'beak',

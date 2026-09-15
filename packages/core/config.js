@@ -7,6 +7,14 @@ import {
   CUSTOM_EYE_MIN_RADIUS,
   CUSTOM_EYE_POINT_COUNT,
   DEFAULT_CUSTOM_EYE_POINTS,
+  CUSTOM_IRIS_MAX_RATIO,
+  CUSTOM_IRIS_MIN_RATIO,
+  CUSTOM_IRIS_POINT_COUNT,
+  DEFAULT_CUSTOM_IRIS_POINTS,
+  CUSTOM_HAIR_MAX_RADIUS,
+  CUSTOM_HAIR_MIN_RADIUS,
+  CUSTOM_HAIR_POINT_COUNT,
+  DEFAULT_CUSTOM_HAIR_POINTS,
 } from './custom-shape.js';
 
 export const REACTIONS = [
@@ -43,10 +51,35 @@ export const EYES = [
   'angry',
   'side-eye',
   'wink',
+  'lashed',
+  'bubble',
+  'winged',
   'custom',
 ];
-export const IRIS = ['dot', 'glossy', 'money', 'heart', 'star'];
-export const NOSES = ['none', 'dot', 'round', 'muzzle', 'moustache', 'beak'];
+export const IRIS = [
+  'dot',
+  'glossy',
+  'money',
+  'heart',
+  'star',
+  'swirl',
+  'rings',
+  'pinwheel',
+  'veil',
+  'custom',
+];
+export const NOSES = [
+  'none',
+  'dot',
+  'round',
+  'button',
+  'hook',
+  'nostrils',
+  'pointy',
+  'muzzle',
+  'moustache',
+  'beak',
+];
 export const BROWS = ['none', 'soft', 'straight', 'arched', 'worried'];
 export const MOUTHS = [
   'none',
@@ -66,6 +99,13 @@ export const HEADS = [
   'none',
   'tuft',
   'curl',
+  'spiky',
+  'bun',
+  'fringe',
+  'blaze',
+  'mane',
+  'wild-mane',
+  'custom-hair',
   'bunny-ears',
   'ears',
   'round-ears',
@@ -84,11 +124,64 @@ export const ACCESSORIES = [
   'bandage',
 ];
 export const HEADS_BY_SHAPE = {
-  wobbi: ['none', 'tuft', 'curl', 'round-ears', 'horns', 'halo'],
-  ghost: ['none', 'tuft', 'curl', 'round-ears', 'horns', 'halo'],
+  wobbi: [
+    'none',
+    'tuft',
+    'curl',
+    'spiky',
+    'bun',
+    'fringe',
+    'blaze',
+    'mane',
+    'wild-mane',
+    'custom-hair',
+    'round-ears',
+    'horns',
+    'halo',
+  ],
+  ghost: [
+    'none',
+    'tuft',
+    'curl',
+    'spiky',
+    'bun',
+    'fringe',
+    'blaze',
+    'mane',
+    'wild-mane',
+    'custom-hair',
+    'round-ears',
+    'horns',
+    'halo',
+  ],
   circle: HEADS,
-  'rounded-square': ['none', 'tuft', 'curl', 'horns', 'halo'],
-  cloud: ['none', 'tuft', 'curl', 'halo'],
+  'rounded-square': [
+    'none',
+    'tuft',
+    'curl',
+    'spiky',
+    'bun',
+    'fringe',
+    'blaze',
+    'mane',
+    'wild-mane',
+    'custom-hair',
+    'horns',
+    'halo',
+  ],
+  cloud: [
+    'none',
+    'tuft',
+    'curl',
+    'spiky',
+    'bun',
+    'fringe',
+    'blaze',
+    'mane',
+    'wild-mane',
+    'custom-hair',
+    'halo',
+  ],
   drop: ['none', 'halo'],
   oval: HEADS,
   egg: HEADS,
@@ -204,6 +297,7 @@ export function createConfig(rawOverrides = {}) {
     lashColor: '#111218',
     eyeOutlineColor: '#111218',
     eyeOutlineWidth: 0,
+    headColor: '#111218',
     noseOutlineColor: '#111218',
     noseOutlineWidth: 0,
     browOutlineColor: '#111218',
@@ -221,6 +315,7 @@ export function createConfig(rawOverrides = {}) {
     eyeColor: '#ffffff',
     outlineColor: '#ffffff',
     outlineWidth: 0,
+    irisSpin: false,
     background: { type: 'solid', color: '#f1edff' },
     customShape: { points: DEFAULT_CUSTOM_SHAPE_POINTS },
     customEyeShape: {
@@ -228,6 +323,8 @@ export function createConfig(rawOverrides = {}) {
       left: { points: DEFAULT_CUSTOM_EYE_POINTS },
       right: { points: DEFAULT_CUSTOM_EYE_POINTS },
     },
+    customIris: { points: DEFAULT_CUSTOM_IRIS_POINTS },
+    customHair: { points: DEFAULT_CUSTOM_HAIR_POINTS },
     size: 256,
     defaultState: 'idle',
     reactions: Object.fromEntries(
@@ -272,6 +369,8 @@ export function createConfig(rawOverrides = {}) {
         ...overrides.customEyeShape?.right,
       },
     },
+    customIris: { ...defaults.customIris, ...overrides.customIris },
+    customHair: { ...defaults.customHair, ...overrides.customHair },
     export: { ...defaults.export, ...overrides.export },
     accessibility: { ...defaults.accessibility, ...overrides.accessibility },
     reactions: Object.fromEntries(
@@ -307,6 +406,7 @@ const CONFIG_KEYS = [
   'lashColor',
   'eyeOutlineColor',
   'eyeOutlineWidth',
+  'headColor',
   'noseOutlineColor',
   'noseOutlineWidth',
   'browOutlineColor',
@@ -324,9 +424,12 @@ const CONFIG_KEYS = [
   'eyeColor',
   'outlineColor',
   'outlineWidth',
+  'irisSpin',
   'background',
   'customShape',
   'customEyeShape',
+  'customIris',
+  'customHair',
   'size',
   'defaultState',
   'reactions',
@@ -423,6 +526,7 @@ export function validateConfig(config) {
     'pupilColor',
     'lashColor',
     'eyeOutlineColor',
+    'headColor',
     'noseOutlineColor',
     'browOutlineColor',
     'mouthOutlineColor',
@@ -475,6 +579,35 @@ export function validateConfig(config) {
     !isValidEyeSidePoints(config.customEyeShape.right)
   )
     errors.push('Invalid custom eye shape.');
+  if (
+    !config.customIris ||
+    typeof config.customIris !== 'object' ||
+    !hasOnlyKeys(config.customIris, ['points']) ||
+    !Array.isArray(config.customIris.points) ||
+    config.customIris.points.length !== CUSTOM_IRIS_POINT_COUNT ||
+    config.customIris.points.some(
+      (ratio) =>
+        !Number.isFinite(ratio) ||
+        ratio < CUSTOM_IRIS_MIN_RATIO ||
+        ratio > CUSTOM_IRIS_MAX_RATIO,
+    )
+  )
+    errors.push('Invalid custom iris.');
+  if (
+    !config.customHair ||
+    typeof config.customHair !== 'object' ||
+    !hasOnlyKeys(config.customHair, ['points']) ||
+    !Array.isArray(config.customHair.points) ||
+    config.customHair.points.length !== CUSTOM_HAIR_POINT_COUNT ||
+    config.customHair.points.some(
+      (radius) =>
+        !Number.isFinite(radius) ||
+        radius < CUSTOM_HAIR_MIN_RADIUS ||
+        radius > CUSTOM_HAIR_MAX_RADIUS,
+    )
+  )
+    errors.push('Invalid custom hair.');
+  if (typeof config.irisSpin !== 'boolean') errors.push('Invalid iris spin.');
   if (!Number.isFinite(config.size) || config.size < 48 || config.size > 512)
     errors.push('Size must be between 48 and 512.');
   if (

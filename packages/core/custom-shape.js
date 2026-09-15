@@ -106,3 +106,76 @@ export function customEyeExtent(radii) {
     height: (radii[0] + radii[4]) / 2,
   };
 }
+
+// --- Custom iris shape ---------------------------------------------------
+// The iris/pupil mark sits inside a globe whose own size varies wildly (a
+// tiny "dots" globe vs. a large "classic" one), so its points are stored as
+// ratios of the globe's own half-extent (0..1) rather than absolute pixels.
+// At render time they are scaled by whatever globe currently hosts them,
+// which is what guarantees the iris never spills outside it.
+
+export const CUSTOM_IRIS_POINT_COUNT = 8;
+export const CUSTOM_IRIS_MIN_RATIO = 0.15;
+export const CUSTOM_IRIS_MAX_RATIO = 1;
+export const CUSTOM_IRIS_DEFAULT_RATIO = 0.62;
+
+export const DEFAULT_CUSTOM_IRIS_POINTS = Array.from(
+  { length: CUSTOM_IRIS_POINT_COUNT },
+  () => CUSTOM_IRIS_DEFAULT_RATIO,
+);
+
+export function customIrisAngle(pointIndex) {
+  return (pointIndex / CUSTOM_IRIS_POINT_COUNT) * Math.PI * 2 - Math.PI / 2;
+}
+
+export function customIrisPointCoordinates(ratios, centerX, centerY, scale) {
+  return radialPointCoordinates(
+    ratios.map((ratio) => ratio * scale),
+    CUSTOM_IRIS_POINT_COUNT,
+    centerX,
+    centerY,
+    false,
+  );
+}
+
+export function customIrisToPath(ratios, centerX, centerY, scale) {
+  return radialPointsToPath(
+    customIrisPointCoordinates(ratios, centerX, centerY, scale),
+  );
+}
+
+// --- Custom hair shape ----------------------------------------------------
+// Same radial-blob technique as the body shape, but with a much wider
+// radius range and, unlike the preset hairstyles, drawn on top of the body
+// so the user has total freedom over height and width with no risk of it
+// being clipped by the body silhouette.
+
+export const CUSTOM_HAIR_POINT_COUNT = 10;
+export const CUSTOM_HAIR_MIN_RADIUS = 4;
+export const CUSTOM_HAIR_MAX_RADIUS = 150;
+export const CUSTOM_HAIR_DEFAULT_RADIUS = 40;
+
+export const DEFAULT_CUSTOM_HAIR_POINTS = Array.from(
+  { length: CUSTOM_HAIR_POINT_COUNT },
+  () => CUSTOM_HAIR_DEFAULT_RADIUS,
+);
+
+export function customHairAngle(pointIndex) {
+  return (pointIndex / CUSTOM_HAIR_POINT_COUNT) * Math.PI * 2 - Math.PI / 2;
+}
+
+export function customHairPointCoordinates(radii, centerX, centerY) {
+  return radialPointCoordinates(
+    radii,
+    CUSTOM_HAIR_POINT_COUNT,
+    centerX,
+    centerY,
+    false,
+  );
+}
+
+export function customHairToPath(radii, centerX, centerY) {
+  return radialPointsToPath(
+    customHairPointCoordinates(radii, centerX, centerY),
+  );
+}

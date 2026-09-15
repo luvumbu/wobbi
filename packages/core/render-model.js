@@ -14,7 +14,7 @@ export const BODY_PATHS = {
   egg: 'M128 27 C160 27 180 62 191 104 C207 164 197 205 164 224 C144 236 112 236 92 224 C59 205 49 164 65 104 C76 62 96 27 128 27Z',
 };
 
-export const LASHED_EYES = ['sleepy', 'angry', 'wink'];
+export const LASHED_EYES = ['sleepy', 'angry', 'wink', 'lashed'];
 
 // Attachment points are tuned per silhouette instead of assuming every body is
 // the same circle. Head details use the crown, while glasses and headphones use

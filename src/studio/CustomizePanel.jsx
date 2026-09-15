@@ -18,10 +18,15 @@ import { ColorPicker, Swatches } from './ColorPicker.jsx';
 import { DisclosurePanel } from './Disclosure.jsx';
 import { RandomizeButton } from './RandomizeButton.jsx';
 import { SettingsPanel } from './SettingsPanel.jsx';
+import { CustomHairEditor } from './CustomHairEditor.jsx';
 import { EyeShapeEditor } from './EyeShapeEditor.jsx';
+import { IrisShapeEditor } from './IrisShapeEditor.jsx';
 import { ShapeEditor } from './ShapeEditor.jsx';
+import { SpinToggleButton } from './SpinToggleButton.jsx';
 import { pickRandomValue } from './randomize.js';
 import { useCustomEyeShapeLibrary } from './useCustomEyeShapeLibrary.js';
+import { useCustomHairLibrary } from './useCustomHairLibrary.js';
+import { useCustomIrisLibrary } from './useCustomIrisLibrary.js';
 import { useCustomShapeLibrary } from './useCustomShapeLibrary.js';
 import {
   accessoryLabels,
@@ -135,7 +140,37 @@ export function CustomizePanel({
     deleteShape: deleteEyeShape,
     renameShape: renameEyeShape,
   } = useCustomEyeShapeLibrary();
+  const {
+    savedShapes: savedIrisShapes,
+    saveShape: saveIrisShape,
+    deleteShape: deleteIrisShape,
+    renameShape: renameIrisShape,
+  } = useCustomIrisLibrary();
+  const {
+    savedShapes: savedHairShapes,
+    saveShape: saveHairShape,
+    deleteShape: deleteHairShape,
+    renameShape: renameHairShape,
+  } = useCustomHairLibrary();
   const hasLashes = LASHED_EYES.includes(config.eyes);
+  const irisExtraTiles = savedIrisShapes.map((savedShape) => ({
+    key: savedShape.id,
+    label: savedShape.name,
+    pressed:
+      config.iris === 'custom' &&
+      JSON.stringify(config.customIris.points) ===
+        JSON.stringify(savedShape.customIris.points),
+    onClick: () =>
+      patch({
+        iris: 'custom',
+        customIris: { points: [...savedShape.customIris.points] },
+      }),
+    previewConfig: {
+      ...config,
+      iris: 'custom',
+      customIris: savedShape.customIris,
+    },
+  }));
   const eyeExtraTiles = savedEyeShapes.map((savedShape) => ({
     key: savedShape.id,
     label: savedShape.name,
@@ -183,6 +218,24 @@ export function CustomizePanel({
       head: 'none',
       accessory: 'none',
       mouth: 'none',
+    },
+  }));
+  const hairExtraTiles = savedHairShapes.map((savedShape) => ({
+    key: savedShape.id,
+    label: savedShape.name,
+    pressed:
+      config.head === 'custom-hair' &&
+      JSON.stringify(config.customHair.points) ===
+        JSON.stringify(savedShape.points),
+    onClick: () =>
+      patch({
+        head: 'custom-hair',
+        customHair: { points: [...savedShape.points] },
+      }),
+    previewConfig: {
+      ...config,
+      head: 'custom-hair',
+      customHair: { points: savedShape.points },
     },
   }));
   function quickColorButton(field, colorKey, label) {
@@ -506,17 +559,35 @@ export function CustomizePanel({
             collapsedCount={5}
             itemLabel="iris"
             onChange={(iris) => patch({ iris })}
-            extraHeaderButton={quickColorButton(
-              'iris',
-              'pupilColor',
-              'Couleur de l’iris',
-            )}
+            extraHeaderButton={
+              <>
+                {quickColorButton('iris', 'pupilColor', 'Couleur de l’iris')}
+                <SpinToggleButton
+                  pressed={config.irisSpin}
+                  onClick={() => patch({ irisSpin: !config.irisSpin })}
+                  label="Rotation de l’iris"
+                />
+              </>
+            }
             headerPanel={quickColorPanel(
               'iris',
               'pupilColor',
               'Couleur de l’iris',
             )}
+            extraTiles={irisExtraTiles}
           >
+            {config.iris === 'custom' && (
+              <IrisShapeEditor
+                customIris={config.customIris}
+                patch={patch}
+                preview={preview}
+                commitPreview={commitPreview}
+                savedShapes={savedIrisShapes}
+                saveShape={saveIrisShape}
+                deleteShape={deleteIrisShape}
+                renameShape={renameIrisShape}
+              />
+            )}
             <AppearanceDisclosure title="Apparence de l’iris">
               <InlineColorControl
                 colorKey="pupilColor"
@@ -728,6 +799,7 @@ export function CustomizePanel({
                   (value) => value === 'none' || group.values.includes(value),
                 );
                 if (groupValues.length <= 1) return null;
+                const isHairGroup = group.title === 'Cheveux';
                 return (
                   <ChoiceGrid
                     key={group.title}
@@ -740,16 +812,57 @@ export function CustomizePanel({
                     collapsedCount={3}
                     itemLabel={group.itemLabel}
                     onChange={(head) => patch({ head })}
-                  />
+                    extraTiles={isHairGroup ? hairExtraTiles : undefined}
+                    extraHeaderButton={
+                      isHairGroup &&
+                      config.head !== 'none' &&
+                      quickColorButton(
+                        'head',
+                        'headColor',
+                        'Couleur des cheveux',
+                      )
+                    }
+                    headerPanel={
+                      isHairGroup &&
+                      quickColorPanel(
+                        'head',
+                        'headColor',
+                        'Couleur des cheveux',
+                      )
+                    }
+                  >
+                    {isHairGroup && config.head === 'custom-hair' && (
+                      <CustomHairEditor
+                        points={config.customHair.points}
+                        patch={patch}
+                        preview={preview}
+                        commitPreview={commitPreview}
+                        savedShapes={savedHairShapes}
+                        saveShape={saveHairShape}
+                        deleteShape={deleteHairShape}
+                        renameShape={renameHairShape}
+                      />
+                    )}
+                  </ChoiceGrid>
                 );
               })}
               {config.head !== 'none' && (
-                <AppearanceDisclosure title="Contour de la tête">
+                <AppearanceDisclosure title="Apparence de la tête">
+                  <InlineColorControl
+                    colorKey="headColor"
+                    label="Teinte"
+                    ariaLabel="Couleur de la tête"
+                    value={config.headColor}
+                    patch={patch}
+                    preview={preview}
+                    commitPreview={commitPreview}
+                    target={target}
+                    setTarget={setTarget}
+                  />
                   <InlineColorControl
                     colorKey="headOutlineColor"
                     label="Contour"
                     ariaLabel="Couleur du contour de la tête"
-                    hideLabel
                     value={config.headOutlineColor}
                     patch={patch}
                     preview={preview}

@@ -20,6 +20,9 @@ export const eyeLabels = {
   angry: 'Anguleux',
   'side-eye': 'De côté',
   wink: 'Clin d’œil',
+  lashed: 'Cils',
+  bubble: 'Bulle',
+  winged: 'Envolé',
   custom: 'Personnalisés',
 };
 export const irisLabels = {
@@ -28,11 +31,20 @@ export const irisLabels = {
   money: 'Dollars',
   heart: 'Cœur',
   star: 'Étoile',
+  swirl: 'Tourbillon',
+  rings: 'Anneaux',
+  pinwheel: 'Vrille',
+  veil: 'Voile',
+  custom: 'Personnalisé',
 };
 export const noseLabels = {
   none: 'Sans',
   dot: 'Petit nez',
   round: 'Nez rond',
+  button: 'Bouton',
+  hook: 'Crochet',
+  nostrils: 'Narines',
+  pointy: 'Pointu',
   muzzle: 'Museau',
   moustache: 'Moustache',
   beak: 'Bec',
@@ -58,6 +70,13 @@ export const headLabels = {
   none: 'Sans',
   tuft: 'Mèche',
   curl: 'Boucle',
+  spiky: 'Épis',
+  bun: 'Chignon',
+  fringe: 'Frange',
+  blaze: 'Épis flamboyants',
+  mane: 'Crinière',
+  'wild-mane': 'Toison sauvage',
+  'custom-hair': 'Personnalisés',
   'bunny-ears': 'Oreilles de lapin',
   ears: 'Oreilles de chat',
   'round-ears': 'Oreilles rondes',
@@ -65,7 +84,21 @@ export const headLabels = {
   halo: 'Auréole',
 };
 export const headGroups = [
-  { title: 'Cheveux', itemLabel: 'cheveux', values: ['tuft', 'curl'] },
+  {
+    title: 'Cheveux',
+    itemLabel: 'cheveux',
+    values: [
+      'tuft',
+      'curl',
+      'spiky',
+      'bun',
+      'fringe',
+      'blaze',
+      'mane',
+      'wild-mane',
+      'custom-hair',
+    ],
+  },
   {
     title: 'Oreilles',
     itemLabel: 'oreilles',
