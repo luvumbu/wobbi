@@ -1,3 +1,4 @@
+import { migrateLegacyPointsArray } from '../../packages/core/custom-shape.js';
 import { useNamedShapeLibrary } from './useNamedShapeLibrary.js';
 
 const STORAGE_KEY = 'wobbi.customEyeShapes.v1';
@@ -14,5 +15,21 @@ export function useCustomEyeShapeLibrary() {
     return saveEntry(name, { customEyeShape });
   }
 
-  return { savedShapes, saveShape, deleteShape, renameShape };
+  return {
+    savedShapes: savedShapes.map((entry) => ({
+      ...entry,
+      customEyeShape: {
+        ...entry.customEyeShape,
+        left: {
+          points: migrateLegacyPointsArray(entry.customEyeShape.left.points),
+        },
+        right: {
+          points: migrateLegacyPointsArray(entry.customEyeShape.right.points),
+        },
+      },
+    })),
+    saveShape,
+    deleteShape,
+    renameShape,
+  };
 }

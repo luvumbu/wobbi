@@ -35,6 +35,9 @@ export const irisLabels = {
   rings: 'Anneaux',
   pinwheel: 'Vrille',
   veil: 'Voile',
+  slit: 'Fente',
+  flower: 'Fleur',
+  clock: 'Horloge',
   custom: 'Personnalisé',
 };
 export const noseLabels = {
@@ -48,6 +51,7 @@ export const noseLabels = {
   muzzle: 'Museau',
   moustache: 'Moustache',
   beak: 'Bec',
+  custom: 'Personnalisé',
 };
 export const browLabels = {
   none: 'Sans',
@@ -55,6 +59,7 @@ export const browLabels = {
   straight: 'Droits',
   arched: 'Arquées',
   worried: 'Inquiets',
+  custom: 'Personnalisés',
 };
 export const mouthLabels = {
   none: 'Sans',
@@ -65,6 +70,7 @@ export const mouthLabels = {
   grin: 'Grand sourire',
   pout: 'Moue',
   fangs: 'Crocs',
+  custom: 'Personnalisée',
 };
 export const headLabels = {
   none: 'Sans',
@@ -80,6 +86,7 @@ export const headLabels = {
   'bunny-ears': 'Oreilles de lapin',
   ears: 'Oreilles de chat',
   'round-ears': 'Oreilles rondes',
+  'elf-ears': 'Oreilles d’elfe',
   horns: 'Cornes',
   halo: 'Auréole',
 };
@@ -102,7 +109,7 @@ export const headGroups = [
   {
     title: 'Oreilles',
     itemLabel: 'oreilles',
-    values: ['bunny-ears', 'ears', 'round-ears'],
+    values: ['bunny-ears', 'ears', 'round-ears', 'elf-ears'],
   },
   { title: 'Détails', itemLabel: 'détails', values: ['horns', 'halo'] },
 ];
@@ -116,6 +123,8 @@ export const accessoryLabels = {
   blush: 'Joues roses',
   freckles: 'Taches de rousseur',
   bandage: 'Pansement',
+  'fox-tail': 'Queue de renard',
+  'cat-tail': 'Queue de chat',
 };
 export const reactionLabels = {
   idle: 'Repos',

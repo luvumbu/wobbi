@@ -1,20 +1,11 @@
 import {
-  CUSTOM_SHAPE_MAX_RADIUS,
-  CUSTOM_SHAPE_MIN_RADIUS,
-  CUSTOM_SHAPE_POINT_COUNT,
   DEFAULT_CUSTOM_SHAPE_POINTS,
-  CUSTOM_EYE_MAX_RADIUS,
-  CUSTOM_EYE_MIN_RADIUS,
-  CUSTOM_EYE_POINT_COUNT,
   DEFAULT_CUSTOM_EYE_POINTS,
-  CUSTOM_IRIS_MAX_RATIO,
-  CUSTOM_IRIS_MIN_RATIO,
-  CUSTOM_IRIS_POINT_COUNT,
   DEFAULT_CUSTOM_IRIS_POINTS,
-  CUSTOM_HAIR_MAX_RADIUS,
-  CUSTOM_HAIR_MIN_RADIUS,
-  CUSTOM_HAIR_POINT_COUNT,
   DEFAULT_CUSTOM_HAIR_POINTS,
+  DEFAULT_CUSTOM_NOSE_POINTS,
+  DEFAULT_CUSTOM_BROW_POINTS,
+  DEFAULT_CUSTOM_MOUTH_POINTS,
 } from './custom-shape.js';
 
 export const REACTIONS = [
@@ -66,6 +57,9 @@ export const IRIS = [
   'rings',
   'pinwheel',
   'veil',
+  'slit',
+  'flower',
+  'clock',
   'custom',
 ];
 export const NOSES = [
@@ -79,8 +73,16 @@ export const NOSES = [
   'muzzle',
   'moustache',
   'beak',
+  'custom',
 ];
-export const BROWS = ['none', 'soft', 'straight', 'arched', 'worried'];
+export const BROWS = [
+  'none',
+  'soft',
+  'straight',
+  'arched',
+  'worried',
+  'custom',
+];
 export const MOUTHS = [
   'none',
   'smile',
@@ -90,6 +92,7 @@ export const MOUTHS = [
   'grin',
   'pout',
   'fangs',
+  'custom',
 ];
 const NO_MOUTH_NOSES = new Set(['muzzle', 'beak']);
 export const mouthsForNose = (nose) =>
@@ -109,6 +112,7 @@ export const HEADS = [
   'bunny-ears',
   'ears',
   'round-ears',
+  'elf-ears',
   'horns',
   'halo',
 ];
@@ -122,6 +126,8 @@ export const ACCESSORIES = [
   'blush',
   'freckles',
   'bandage',
+  'fox-tail',
+  'cat-tail',
 ];
 export const HEADS_BY_SHAPE = {
   wobbi: [
@@ -325,6 +331,13 @@ export function createConfig(rawOverrides = {}) {
     },
     customIris: { points: DEFAULT_CUSTOM_IRIS_POINTS },
     customHair: { points: DEFAULT_CUSTOM_HAIR_POINTS },
+    customNose: { points: DEFAULT_CUSTOM_NOSE_POINTS },
+    customBrows: {
+      symmetric: true,
+      left: { points: DEFAULT_CUSTOM_BROW_POINTS },
+      right: { points: DEFAULT_CUSTOM_BROW_POINTS },
+    },
+    customMouth: { points: DEFAULT_CUSTOM_MOUTH_POINTS },
     size: 256,
     defaultState: 'idle',
     reactions: Object.fromEntries(
@@ -371,6 +384,20 @@ export function createConfig(rawOverrides = {}) {
     },
     customIris: { ...defaults.customIris, ...overrides.customIris },
     customHair: { ...defaults.customHair, ...overrides.customHair },
+    customNose: { ...defaults.customNose, ...overrides.customNose },
+    customBrows: {
+      ...defaults.customBrows,
+      ...overrides.customBrows,
+      left: {
+        ...defaults.customBrows.left,
+        ...overrides.customBrows?.left,
+      },
+      right: {
+        ...defaults.customBrows.right,
+        ...overrides.customBrows?.right,
+      },
+    },
+    customMouth: { ...defaults.customMouth, ...overrides.customMouth },
     export: { ...defaults.export, ...overrides.export },
     accessibility: { ...defaults.accessibility, ...overrides.accessibility },
     reactions: Object.fromEntries(
@@ -430,6 +457,9 @@ const CONFIG_KEYS = [
   'customEyeShape',
   'customIris',
   'customHair',
+  'customNose',
+  'customBrows',
+  'customMouth',
   'size',
   'defaultState',
   'reactions',
@@ -544,32 +574,29 @@ export function validateConfig(config) {
     !['solid', 'transparent'].includes(config.background?.type)
   )
     errors.push('Invalid background.');
+  const isFinitePoint = (point) =>
+    point &&
+    typeof point === 'object' &&
+    hasOnlyKeys(point, ['x', 'y']) &&
+    Number.isFinite(point.x) &&
+    Number.isFinite(point.y);
+  const isValidPointArray = (points, min = 3, max = 24) =>
+    Array.isArray(points) &&
+    points.length >= min &&
+    points.length <= max &&
+    points.every(isFinitePoint);
   if (
     !config.customShape ||
     typeof config.customShape !== 'object' ||
     !hasOnlyKeys(config.customShape, ['points']) ||
-    !Array.isArray(config.customShape.points) ||
-    config.customShape.points.length !== CUSTOM_SHAPE_POINT_COUNT ||
-    config.customShape.points.some(
-      (radius) =>
-        !Number.isFinite(radius) ||
-        radius < CUSTOM_SHAPE_MIN_RADIUS ||
-        radius > CUSTOM_SHAPE_MAX_RADIUS,
-    )
+    !isValidPointArray(config.customShape.points)
   )
     errors.push('Invalid custom shape.');
   const isValidEyeSidePoints = (side) =>
     side &&
     typeof side === 'object' &&
     hasOnlyKeys(side, ['points']) &&
-    Array.isArray(side.points) &&
-    side.points.length === CUSTOM_EYE_POINT_COUNT &&
-    side.points.every(
-      (radius) =>
-        Number.isFinite(radius) &&
-        radius >= CUSTOM_EYE_MIN_RADIUS &&
-        radius <= CUSTOM_EYE_MAX_RADIUS,
-    );
+    isValidPointArray(side.points);
   if (
     !config.customEyeShape ||
     typeof config.customEyeShape !== 'object' ||
@@ -583,30 +610,39 @@ export function validateConfig(config) {
     !config.customIris ||
     typeof config.customIris !== 'object' ||
     !hasOnlyKeys(config.customIris, ['points']) ||
-    !Array.isArray(config.customIris.points) ||
-    config.customIris.points.length !== CUSTOM_IRIS_POINT_COUNT ||
-    config.customIris.points.some(
-      (ratio) =>
-        !Number.isFinite(ratio) ||
-        ratio < CUSTOM_IRIS_MIN_RATIO ||
-        ratio > CUSTOM_IRIS_MAX_RATIO,
-    )
+    !isValidPointArray(config.customIris.points)
   )
     errors.push('Invalid custom iris.');
   if (
     !config.customHair ||
     typeof config.customHair !== 'object' ||
     !hasOnlyKeys(config.customHair, ['points']) ||
-    !Array.isArray(config.customHair.points) ||
-    config.customHair.points.length !== CUSTOM_HAIR_POINT_COUNT ||
-    config.customHair.points.some(
-      (radius) =>
-        !Number.isFinite(radius) ||
-        radius < CUSTOM_HAIR_MIN_RADIUS ||
-        radius > CUSTOM_HAIR_MAX_RADIUS,
-    )
+    !isValidPointArray(config.customHair.points)
   )
     errors.push('Invalid custom hair.');
+  if (
+    !config.customNose ||
+    typeof config.customNose !== 'object' ||
+    !hasOnlyKeys(config.customNose, ['points']) ||
+    !isValidPointArray(config.customNose.points)
+  )
+    errors.push('Invalid custom nose.');
+  if (
+    !config.customBrows ||
+    typeof config.customBrows !== 'object' ||
+    !hasOnlyKeys(config.customBrows, ['symmetric', 'left', 'right']) ||
+    typeof config.customBrows.symmetric !== 'boolean' ||
+    !isValidEyeSidePoints(config.customBrows.left) ||
+    !isValidEyeSidePoints(config.customBrows.right)
+  )
+    errors.push('Invalid custom brows.');
+  if (
+    !config.customMouth ||
+    typeof config.customMouth !== 'object' ||
+    !hasOnlyKeys(config.customMouth, ['points']) ||
+    !isValidPointArray(config.customMouth.points)
+  )
+    errors.push('Invalid custom mouth.');
   if (typeof config.irisSpin !== 'boolean') errors.push('Invalid iris spin.');
   if (!Number.isFinite(config.size) || config.size < 48 || config.size > 512)
     errors.push('Size must be between 48 and 512.');

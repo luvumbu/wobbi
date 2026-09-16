@@ -1,16 +1,17 @@
 import { useRef, useState } from 'react';
 import { Pencil, Plus, X } from 'lucide-react';
 import {
-  CUSTOM_EYE_MAX_RADIUS,
-  CUSTOM_EYE_MIN_RADIUS,
   DEFAULT_CUSTOM_EYE_POINTS,
-  customEyeAngle,
   customEyePointCoordinates,
   customEyeToPath,
+  insertPointOnSegment,
+  removePointAt,
+  scalePoints,
 } from '../../packages/core/custom-shape.js';
 
 const EDITOR_CENTER = 34;
 const EDITOR_SIZE = 68;
+const MIN_POINTS = 3;
 
 const PAIR_LEFT_CENTER_X = 32;
 const PAIR_RIGHT_CENTER_X = 68;
@@ -53,6 +54,8 @@ export function EyeShapeEditor({
   renameShape,
 }) {
   const svgRefs = useRef({ left: null, right: null });
+  const scaleBaseRef = useRef(null);
+  const [scaleValue, setScaleValue] = useState(100);
   const [activeSide, setActiveSide] = useState('left');
   const [shapeName, setShapeName] = useState('');
   const [renamingId, setRenamingId] = useState(null);
@@ -60,29 +63,23 @@ export function EyeShapeEditor({
   const editingSide = customEyeShape.symmetric ? 'left' : activeSide;
   const editingPoints = customEyeShape[editingSide].points;
 
-  function radiusFromPointerEvent(event, pointIndex) {
+  function localPointFromClient(clientX, clientY) {
     const svg = svgRefs.current[editingSide];
     const pointerPoint = svg.createSVGPoint();
-    pointerPoint.x = event.clientX;
-    pointerPoint.y = event.clientY;
+    pointerPoint.x = clientX;
+    pointerPoint.y = clientY;
     const userSpacePoint = pointerPoint.matrixTransform(
       svg.getScreenCTM().inverse(),
     );
-    const angle = customEyeAngle(pointIndex);
-    const directionX = Math.cos(angle);
-    const directionY = Math.sin(angle);
-    const radius =
-      (userSpacePoint.x - EDITOR_CENTER) * directionX +
-      (userSpacePoint.y - EDITOR_CENTER) * directionY;
-    return Math.min(
-      CUSTOM_EYE_MAX_RADIUS,
-      Math.max(CUSTOM_EYE_MIN_RADIUS, radius),
-    );
+    return {
+      x: userSpacePoint.x - EDITOR_CENTER,
+      y: userSpacePoint.y - EDITOR_CENTER,
+    };
   }
 
-  function updatePoint(pointIndex, radius, notify) {
+  function updatePoint(pointIndex, point, notify) {
     const nextPoints = editingPoints.map((value, index) =>
-      index === pointIndex ? radius : value,
+      index === pointIndex ? point : value,
     );
     notify({
       customEyeShape: {
@@ -98,7 +95,7 @@ export function EyeShapeEditor({
         event.currentTarget.setPointerCapture(event.pointerId);
         updatePoint(
           pointIndex,
-          radiusFromPointerEvent(event, pointIndex),
+          localPointFromClient(event.clientX, event.clientY),
           preview,
         );
       },
@@ -106,7 +103,7 @@ export function EyeShapeEditor({
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
         updatePoint(
           pointIndex,
-          radiusFromPointerEvent(event, pointIndex),
+          localPointFromClient(event.clientX, event.clientY),
           preview,
         );
       },
@@ -117,23 +114,62 @@ export function EyeShapeEditor({
       },
       onKeyDown: (event) => {
         const step = event.shiftKey ? 4 : 1.5;
-        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+        const current = editingPoints[pointIndex];
+        if (event.key === 'ArrowRight') {
           event.preventDefault();
-          updatePoint(
-            pointIndex,
-            Math.min(CUSTOM_EYE_MAX_RADIUS, editingPoints[pointIndex] + step),
-            patch,
-          );
-        } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+          updatePoint(pointIndex, { x: current.x + step, y: current.y }, patch);
+        } else if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          updatePoint(
-            pointIndex,
-            Math.max(CUSTOM_EYE_MIN_RADIUS, editingPoints[pointIndex] - step),
-            patch,
-          );
+          updatePoint(pointIndex, { x: current.x - step, y: current.y }, patch);
+        } else if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          updatePoint(pointIndex, { x: current.x, y: current.y + step }, patch);
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          updatePoint(pointIndex, { x: current.x, y: current.y - step }, patch);
         }
       },
     };
+  }
+
+  function handleAddPoint(event) {
+    const clicked = localPointFromClient(event.clientX, event.clientY);
+    patch({
+      customEyeShape: {
+        ...customEyeShape,
+        [editingSide]: { points: insertPointOnSegment(editingPoints, clicked) },
+      },
+    });
+  }
+
+  function handleRemovePoint(pointIndex) {
+    if (editingPoints.length <= MIN_POINTS) return;
+    patch({
+      customEyeShape: {
+        ...customEyeShape,
+        [editingSide]: { points: removePointAt(editingPoints, pointIndex) },
+      },
+    });
+  }
+
+  function handleScaleInput(event) {
+    const value = Number(event.target.value);
+    setScaleValue(value);
+    scaleBaseRef.current ??= editingPoints;
+    preview({
+      customEyeShape: {
+        ...customEyeShape,
+        [editingSide]: {
+          points: scalePoints(scaleBaseRef.current, value / 100),
+        },
+      },
+    });
+  }
+  function handleScaleCommit() {
+    if (!scaleBaseRef.current) return;
+    scaleBaseRef.current = null;
+    setScaleValue(100);
+    commitPreview();
   }
 
   function applySavedShape(savedShape) {
@@ -245,28 +281,67 @@ export function EyeShapeEditor({
             : `Éditeur de forme de l’œil ${activeSide === 'left' ? 'gauche' : 'droit'}`
         }
       >
+        <path
+          d={pathData}
+          className="shape-editor-outline-hit"
+          onDoubleClick={handleAddPoint}
+        />
         <path d={pathData} className="shape-editor-outline" />
         {coordinates.map((point, index) => (
-          <circle
-            key={index}
-            className="shape-editor-handle eye-shape-editor-handle"
-            tabIndex={0}
-            role="slider"
-            aria-label={`Point ${index + 1} de la forme d’œil`}
-            aria-valuemin={CUSTOM_EYE_MIN_RADIUS}
-            aria-valuemax={CUSTOM_EYE_MAX_RADIUS}
-            aria-valuenow={Math.round(editingPoints[index])}
-            cx={point.x}
-            cy={point.y}
-            r="4"
-            {...dragHandlers(index)}
-          />
+          <g key={index} className="shape-editor-point">
+            <circle
+              className="shape-editor-handle eye-shape-editor-handle"
+              tabIndex={0}
+              role="button"
+              aria-roledescription="point déplaçable"
+              aria-label={`Point ${index + 1} de la forme d’œil — glisser ou flèches pour déplacer`}
+              cx={point.x}
+              cy={point.y}
+              r="4"
+              {...dragHandlers(index)}
+            />
+            {editingPoints.length > MIN_POINTS && (
+              <g
+                className="shape-editor-point-remove shape-editor-point-remove-small"
+                transform={`translate(${point.x + 6} ${point.y - 6})`}
+                onClick={() => handleRemovePoint(index)}
+              >
+                <circle
+                  className="shape-editor-point-remove-hit"
+                  r="4.5"
+                  role="button"
+                  aria-label={`Supprimer le point ${index + 1}`}
+                />
+                <path
+                  className="shape-editor-point-remove-mark"
+                  d="M-2 -2 L2 2 M2 -2 L-2 2"
+                />
+              </g>
+            )}
+          </g>
         ))}
       </svg>
+      <label className="thickness-control shape-editor-scale">
+        <span>Échelle</span>
+        <output>{scaleValue}%</output>
+        <input
+          type="range"
+          min="50"
+          max="200"
+          value={scaleValue}
+          aria-label="Échelle uniforme de la forme d’œil"
+          onInput={handleScaleInput}
+          onPointerUp={handleScaleCommit}
+          onKeyUp={handleScaleCommit}
+          onChange={() => {}}
+        />
+      </label>
       <p className="shape-editor-hint">
         {customEyeShape.symmetric
           ? 'Les deux yeux partagent cette forme, en miroir.'
-          : 'Chaque œil a sa propre forme.'}
+          : 'Chaque œil a sa propre forme.'}{' '}
+        Double-cliquez sur le contour pour ajouter un point, survolez un point
+        pour le supprimer.
       </p>
 
       <div className="shape-editor-save">

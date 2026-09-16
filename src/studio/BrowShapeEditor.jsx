@@ -1,20 +1,50 @@
 import { useRef, useState } from 'react';
 import { Pencil, Plus, X } from 'lucide-react';
 import {
-  DEFAULT_CUSTOM_HAIR_POINTS,
-  customHairPointCoordinates,
-  customHairToPath,
+  DEFAULT_CUSTOM_BROW_POINTS,
+  customBrowPointCoordinates,
+  customBrowToPath,
   insertPointOnSegment,
   removePointAt,
   scalePoints,
 } from '../../packages/core/custom-shape.js';
 
-const EDITOR_CENTER = 170;
-const EDITOR_SIZE = 340;
+const EDITOR_CENTER = 34;
+const EDITOR_SIZE = 68;
 const MIN_POINTS = 3;
 
-export function CustomHairEditor({
-  points,
+const PAIR_LEFT_CENTER_X = 32;
+const PAIR_RIGHT_CENTER_X = 68;
+const PAIR_CENTER_Y = 30;
+
+function defaultCustomBrows() {
+  return {
+    symmetric: true,
+    left: { points: [...DEFAULT_CUSTOM_BROW_POINTS] },
+    right: { points: [...DEFAULT_CUSTOM_BROW_POINTS] },
+  };
+}
+
+function browPairPathData(customBrows) {
+  const leftPath = customBrowToPath(
+    customBrows.left.points,
+    PAIR_LEFT_CENTER_X,
+    PAIR_CENTER_Y,
+  );
+  const rightPoints = customBrows.symmetric
+    ? customBrows.left.points
+    : customBrows.right.points;
+  const rightPath = customBrowToPath(
+    rightPoints,
+    PAIR_RIGHT_CENTER_X,
+    PAIR_CENTER_Y,
+    customBrows.symmetric,
+  );
+  return `${leftPath} ${rightPath}`;
+}
+
+export function BrowShapeEditor({
+  customBrows,
   patch,
   preview,
   commitPreview,
@@ -23,15 +53,18 @@ export function CustomHairEditor({
   deleteShape,
   renameShape,
 }) {
-  const svgRef = useRef(null);
+  const svgRefs = useRef({ left: null, right: null });
   const scaleBaseRef = useRef(null);
   const [scaleValue, setScaleValue] = useState(100);
+  const [activeSide, setActiveSide] = useState('left');
   const [shapeName, setShapeName] = useState('');
   const [renamingId, setRenamingId] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const editingSide = customBrows.symmetric ? 'left' : activeSide;
+  const editingPoints = customBrows[editingSide].points;
 
   function localPointFromClient(clientX, clientY) {
-    const svg = svgRef.current;
+    const svg = svgRefs.current[editingSide];
     const pointerPoint = svg.createSVGPoint();
     pointerPoint.x = clientX;
     pointerPoint.y = clientY;
@@ -45,10 +78,15 @@ export function CustomHairEditor({
   }
 
   function updatePoint(pointIndex, point, notify) {
-    const nextPoints = points.map((value, index) =>
+    const nextPoints = editingPoints.map((value, index) =>
       index === pointIndex ? point : value,
     );
-    notify({ customHair: { points: nextPoints } });
+    notify({
+      customBrows: {
+        ...customBrows,
+        [editingSide]: { points: nextPoints },
+      },
+    });
   }
 
   function dragHandlers(pointIndex) {
@@ -75,8 +113,8 @@ export function CustomHairEditor({
         commitPreview();
       },
       onKeyDown: (event) => {
-        const step = event.shiftKey ? 12 : 4;
-        const current = points[pointIndex];
+        const step = event.shiftKey ? 4 : 1.5;
+        const current = editingPoints[pointIndex];
         if (event.key === 'ArrowRight') {
           event.preventDefault();
           updatePoint(pointIndex, { x: current.x + step, y: current.y }, patch);
@@ -96,20 +134,35 @@ export function CustomHairEditor({
 
   function handleAddPoint(event) {
     const clicked = localPointFromClient(event.clientX, event.clientY);
-    patch({ customHair: { points: insertPointOnSegment(points, clicked) } });
+    patch({
+      customBrows: {
+        ...customBrows,
+        [editingSide]: { points: insertPointOnSegment(editingPoints, clicked) },
+      },
+    });
   }
 
   function handleRemovePoint(pointIndex) {
-    if (points.length <= MIN_POINTS) return;
-    patch({ customHair: { points: removePointAt(points, pointIndex) } });
+    if (editingPoints.length <= MIN_POINTS) return;
+    patch({
+      customBrows: {
+        ...customBrows,
+        [editingSide]: { points: removePointAt(editingPoints, pointIndex) },
+      },
+    });
   }
 
   function handleScaleInput(event) {
     const value = Number(event.target.value);
     setScaleValue(value);
-    scaleBaseRef.current ??= points;
+    scaleBaseRef.current ??= editingPoints;
     preview({
-      customHair: { points: scalePoints(scaleBaseRef.current, value / 100) },
+      customBrows: {
+        ...customBrows,
+        [editingSide]: {
+          points: scalePoints(scaleBaseRef.current, value / 100),
+        },
+      },
     });
   }
   function handleScaleCommit() {
@@ -120,17 +173,27 @@ export function CustomHairEditor({
   }
 
   function applySavedShape(savedShape) {
-    patch({ customHair: { points: [...savedShape.points] } });
+    patch({
+      customBrows: {
+        symmetric: savedShape.customBrows.symmetric,
+        left: { points: [...savedShape.customBrows.left.points] },
+        right: { points: [...savedShape.customBrows.right.points] },
+      },
+    });
     setShapeName('');
   }
 
   function startNewShape() {
-    patch({ customHair: { points: [...DEFAULT_CUSTOM_HAIR_POINTS] } });
+    patch({ customBrows: defaultCustomBrows() });
     setShapeName('');
   }
 
   function saveCurrentShape() {
-    saveShape(shapeName, [...points]);
+    saveShape(shapeName, {
+      symmetric: customBrows.symmetric,
+      left: { points: [...customBrows.left.points] },
+      right: { points: [...customBrows.right.points] },
+    });
     setShapeName('');
   }
 
@@ -145,21 +208,78 @@ export function CustomHairEditor({
     setRenameDraft('');
   }
 
-  const coordinates = customHairPointCoordinates(
-    points,
+  const coordinates = customBrowPointCoordinates(
+    editingPoints,
     EDITOR_CENTER,
     EDITOR_CENTER,
   );
-  const pathData = customHairToPath(points, EDITOR_CENTER, EDITOR_CENTER);
+  const pathData = customBrowToPath(
+    editingPoints,
+    EDITOR_CENTER,
+    EDITOR_CENTER,
+  );
 
   return (
-    <div className="shape-editor">
+    <div className="eye-shape-editor">
+      <div className="depth-control">
+        <h3>Symétrie</h3>
+        <div>
+          <button
+            type="button"
+            aria-pressed={customBrows.symmetric}
+            onClick={() =>
+              patch({ customBrows: { ...customBrows, symmetric: true } })
+            }
+          >
+            Symétrique
+          </button>
+          <button
+            type="button"
+            aria-pressed={!customBrows.symmetric}
+            onClick={() =>
+              patch({ customBrows: { ...customBrows, symmetric: false } })
+            }
+          >
+            Asymétrique
+          </button>
+        </div>
+      </div>
+
+      {!customBrows.symmetric && (
+        <div
+          className="reaction-select"
+          role="group"
+          aria-label="Sourcil à modifier"
+        >
+          <button
+            type="button"
+            aria-pressed={activeSide === 'left'}
+            onClick={() => setActiveSide('left')}
+          >
+            Sourcil gauche
+          </button>
+          <button
+            type="button"
+            aria-pressed={activeSide === 'right'}
+            onClick={() => setActiveSide('right')}
+          >
+            Sourcil droit
+          </button>
+        </div>
+      )}
+
       <svg
-        ref={svgRef}
-        className="shape-editor-canvas"
+        ref={(element) => {
+          svgRefs.current[editingSide] = element;
+        }}
+        className="shape-editor-canvas eye-shape-editor-canvas"
         viewBox={`0 0 ${EDITOR_SIZE} ${EDITOR_SIZE}`}
         role="group"
-        aria-label="Éditeur de cheveux personnalisés"
+        aria-label={
+          customBrows.symmetric
+            ? 'Éditeur de forme de sourcil (symétrique)'
+            : `Éditeur de forme du sourcil ${activeSide === 'left' ? 'gauche' : 'droit'}`
+        }
       >
         <path
           d={pathData}
@@ -170,31 +290,31 @@ export function CustomHairEditor({
         {coordinates.map((point, index) => (
           <g key={index} className="shape-editor-point">
             <circle
-              className="shape-editor-handle"
+              className="shape-editor-handle eye-shape-editor-handle"
               tabIndex={0}
               role="button"
               aria-roledescription="point déplaçable"
-              aria-label={`Point ${index + 1} des cheveux — glisser ou flèches pour déplacer`}
+              aria-label={`Point ${index + 1} du sourcil — glisser ou flèches pour déplacer`}
               cx={point.x}
               cy={point.y}
-              r="9"
+              r="4"
               {...dragHandlers(index)}
             />
-            {points.length > MIN_POINTS && (
+            {editingPoints.length > MIN_POINTS && (
               <g
-                className="shape-editor-point-remove"
-                transform={`translate(${point.x + 11} ${point.y - 11})`}
+                className="shape-editor-point-remove shape-editor-point-remove-small"
+                transform={`translate(${point.x + 6} ${point.y - 6})`}
                 onClick={() => handleRemovePoint(index)}
               >
                 <circle
                   className="shape-editor-point-remove-hit"
-                  r="7"
+                  r="4.5"
                   role="button"
                   aria-label={`Supprimer le point ${index + 1}`}
                 />
                 <path
                   className="shape-editor-point-remove-mark"
-                  d="M-3 -3 L3 3 M3 -3 L-3 3"
+                  d="M-2 -2 L2 2 M2 -2 L-2 2"
                 />
               </g>
             )}
@@ -209,7 +329,7 @@ export function CustomHairEditor({
           min="50"
           max="200"
           value={scaleValue}
-          aria-label="Échelle uniforme des cheveux"
+          aria-label="Échelle uniforme du sourcil"
           onInput={handleScaleInput}
           onPointerUp={handleScaleCommit}
           onKeyUp={handleScaleCommit}
@@ -217,17 +337,20 @@ export function CustomHairEditor({
         />
       </label>
       <p className="shape-editor-hint">
-        Faites glisser les points librement. Double-cliquez sur le contour pour
-        ajouter un point, survolez un point pour le supprimer. Pas de limite de
-        hauteur ni de largeur : ces cheveux sont dessinés par-dessus le corps.
+        {customBrows.symmetric
+          ? 'Les deux sourcils partagent cette forme, en miroir.'
+          : 'Chaque sourcil a sa propre forme.'}{' '}
+        Double-cliquez sur le contour pour ajouter un point, survolez un point
+        pour le supprimer.
       </p>
+
       <div className="shape-editor-save">
         <label className="shape-editor-save-field">
           <span>Nom de la forme</span>
           <input
             type="text"
             maxLength={40}
-            placeholder="Mes cheveux"
+            placeholder="Mes sourcils"
             value={shapeName}
             onChange={(event) => setShapeName(event.target.value)}
           />
@@ -243,7 +366,7 @@ export function CustomHairEditor({
       </div>
 
       <div className="shape-editor-library">
-        <h3>Mes cheveux</h3>
+        <h3>Mes sourcils</h3>
         <div className="shape-editor-library-grid">
           <button
             type="button"
@@ -257,16 +380,9 @@ export function CustomHairEditor({
             renamingId === savedShape.id ? (
               <div className="shape-editor-library-item" key={savedShape.id}>
                 <div className="shape-editor-library-thumb shape-editor-library-renaming">
-                  <svg
-                    viewBox={`0 0 ${EDITOR_SIZE} ${EDITOR_SIZE}`}
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 100 60" aria-hidden="true">
                     <path
-                      d={customHairToPath(
-                        savedShape.points,
-                        EDITOR_CENTER,
-                        EDITOR_CENTER,
-                      )}
+                      d={browPairPathData(savedShape.customBrows)}
                       className="shape-editor-outline"
                     />
                   </svg>
@@ -295,19 +411,12 @@ export function CustomHairEditor({
                 <button
                   type="button"
                   className="shape-editor-library-thumb"
-                  aria-label={`Utiliser les cheveux ${savedShape.name}`}
+                  aria-label={`Utiliser les sourcils ${savedShape.name}`}
                   onClick={() => applySavedShape(savedShape)}
                 >
-                  <svg
-                    viewBox={`0 0 ${EDITOR_SIZE} ${EDITOR_SIZE}`}
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 100 60" aria-hidden="true">
                     <path
-                      d={customHairToPath(
-                        savedShape.points,
-                        EDITOR_CENTER,
-                        EDITOR_CENTER,
-                      )}
+                      d={browPairPathData(savedShape.customBrows)}
                       className="shape-editor-outline"
                     />
                   </svg>
@@ -316,7 +425,7 @@ export function CustomHairEditor({
                 <button
                   type="button"
                   className="shape-editor-library-rename"
-                  aria-label={`Renommer les cheveux ${savedShape.name}`}
+                  aria-label={`Renommer les sourcils ${savedShape.name}`}
                   onClick={() => startRename(savedShape)}
                 >
                   <Pencil size={11} aria-hidden="true" />
@@ -324,7 +433,7 @@ export function CustomHairEditor({
                 <button
                   type="button"
                   className="shape-editor-library-delete"
-                  aria-label={`Supprimer les cheveux ${savedShape.name}`}
+                  aria-label={`Supprimer les sourcils ${savedShape.name}`}
                   onClick={() => deleteShape(savedShape.id)}
                 >
                   <X size={13} aria-hidden="true" />

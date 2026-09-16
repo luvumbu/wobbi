@@ -144,7 +144,7 @@ describe('mascot domain', () => {
   it('offers a broader but validated expression system', () => {
     expect(EYES).toHaveLength(14);
     expect(EYES).toEqual(expect.arrayContaining(['round', 'side-eye', 'wink']));
-    expect(IRIS).toHaveLength(10);
+    expect(IRIS).toHaveLength(13);
     expect(IRIS).toEqual(
       expect.arrayContaining(['dot', 'glossy', 'money', 'heart', 'star']),
     );
@@ -160,9 +160,17 @@ describe('mascot domain', () => {
       'muzzle',
       'moustache',
       'beak',
+      'custom',
     ]);
-    expect(BROWS).toEqual(['none', 'soft', 'straight', 'arched', 'worried']);
-    expect(MOUTHS).toHaveLength(8);
+    expect(BROWS).toEqual([
+      'none',
+      'soft',
+      'straight',
+      'arched',
+      'worried',
+      'custom',
+    ]);
+    expect(MOUTHS).toHaveLength(9);
     expect(MOUTHS).toEqual(expect.arrayContaining(['grin', 'pout', 'fangs']));
     expect(MOUTHS).not.toContain('moustache');
     expect(validateConfig(createConfig({ mouth: 'moustache' }))).toContain(
@@ -185,6 +193,85 @@ describe('mascot domain', () => {
     expect(validateConfig({ ...createConfig(), depth: 'plastic' })).toContain(
       'Choose supported depth.',
     );
+  });
+  it('accepts variable-length free {x,y} points and rejects malformed ones', () => {
+    const base = createConfig();
+    const withShapePoints = (points) => ({
+      ...base,
+      customShape: { points },
+    });
+    const point = (x, y) => ({ x, y });
+    expect(
+      validateConfig(withShapePoints([point(1, 2), point(3, 4), point(5, 6)])),
+    ).toEqual([]);
+    expect(
+      validateConfig(
+        withShapePoints(Array.from({ length: 24 }, (_, i) => point(i, i))),
+      ),
+    ).toEqual([]);
+    expect(
+      validateConfig(withShapePoints([point(1, 2), point(3, 4)])),
+    ).toContain('Invalid custom shape.');
+    expect(
+      validateConfig(
+        withShapePoints(Array.from({ length: 25 }, (_, i) => point(i, i))),
+      ),
+    ).toContain('Invalid custom shape.');
+    expect(validateConfig(withShapePoints([1, 2, 3]))).toContain(
+      'Invalid custom shape.',
+    );
+    expect(
+      validateConfig(
+        withShapePoints([point(NaN, 2), point(3, 4), point(5, 6)]),
+      ),
+    ).toContain('Invalid custom shape.');
+    expect(
+      validateConfig(
+        withShapePoints([point(Infinity, 2), point(3, 4), point(5, 6)]),
+      ),
+    ).toContain('Invalid custom shape.');
+    expect(
+      validateConfig(
+        withShapePoints([{ x: 1, y: 2, z: 3 }, point(3, 4), point(5, 6)]),
+      ),
+    ).toContain('Invalid custom shape.');
+  });
+  it('validates the free-point nose, brows and mouth the same way', () => {
+    const base = createConfig();
+    const point = (x, y) => ({ x, y });
+    const triangle = [point(0, -8), point(8, 8), point(-8, 8)];
+    expect(
+      validateConfig({ ...base, customNose: { points: triangle } }),
+    ).toEqual([]);
+    expect(
+      validateConfig({ ...base, customNose: { points: [1, 2, 3] } }),
+    ).toContain('Invalid custom nose.');
+    expect(
+      validateConfig({ ...base, customMouth: { points: triangle } }),
+    ).toEqual([]);
+    expect(validateConfig({ ...base, customMouth: { points: [] } })).toContain(
+      'Invalid custom mouth.',
+    );
+    expect(
+      validateConfig({
+        ...base,
+        customBrows: {
+          symmetric: true,
+          left: { points: triangle },
+          right: { points: triangle },
+        },
+      }),
+    ).toEqual([]);
+    expect(
+      validateConfig({
+        ...base,
+        customBrows: {
+          symmetric: true,
+          left: { points: [1, 2, 3] },
+          right: { points: triangle },
+        },
+      }),
+    ).toContain('Invalid custom brows.');
   });
   it('clamps timing and strength and preserves ordered enabled moves', () => {
     const motion = normalizeMotion({

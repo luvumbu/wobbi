@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
 import { createConfig, validateConfig } from '../../packages/core/config.js';
+import { migrateLegacyCustomShapes } from '../legacy-shapes.js';
 const KEY = 'wobbi.studio.v2';
 function restore() {
   try {
     const stored = JSON.parse(localStorage.getItem(KEY));
-    if (stored?.config && !validateConfig(stored.config).length)
-      return createConfig(stored.config);
+    if (stored?.config) {
+      const migrated = migrateLegacyCustomShapes(stored.config);
+      if (!validateConfig(migrated).length) return createConfig(migrated);
+    }
   } catch {
     return createConfig();
   }

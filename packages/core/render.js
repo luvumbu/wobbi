@@ -11,6 +11,9 @@ import {
   customEyeExtent,
   customIrisToPath,
   customHairToPath,
+  customNoseToPath,
+  customBrowToPath,
+  customMouthToPath,
 } from './custom-shape.js';
 
 const EYE_SYMBOLS = { money: '$', heart: '♥', star: '★' };
@@ -459,6 +462,116 @@ export function renderParts(h, config, state = 'idle') {
             }),
           ),
         );
+      } else if (iris === 'slit') {
+        // A vertical cat/reptile slit pupil on a solid iris disc, sized off
+        // this globe's own extent so it can never spill outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const slitInk = closedEyeColor(pupilInk);
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, { fill: pupilInk }),
+            config.depth === 'flat'
+              ? null
+              : ellipse(x, y, discRadius, discRadius, {
+                  fill: '#000000',
+                  opacity: 0.12,
+                  pointerEvents: 'none',
+                }),
+            ellipse(x, y, discRadius * 0.16, discRadius * 0.95, {
+              fill: slitInk,
+            }),
+            ellipse(x, y, discRadius, discRadius, {
+              fill: 'none',
+              stroke: slitInk,
+              strokeWidth: Math.max(1, discRadius * 0.08),
+            }),
+          ),
+        );
+      } else if (iris === 'flower') {
+        // A generic "blossom eye" motif: petals radiating from a small
+        // centre dot, sized off this globe's own extent so it can never
+        // spill outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const petalInk = closedEyeColor(pupilInk);
+        const petalCount = 5;
+        const petalLen = discRadius * 0.85;
+        const petalHalf = discRadius * 0.32;
+        const petals = Array.from({ length: petalCount }, (_, petalIndex) => {
+          const angleDeg = (petalIndex / petalCount) * 360;
+          const petalPath = `M${x} ${y} Q${x - petalHalf} ${y - petalLen * 0.55} ${x} ${y - petalLen} Q${x + petalHalf} ${y - petalLen * 0.55} ${x} ${y}Z`;
+          return n(
+            'g',
+            { transform: `rotate(${angleDeg} ${x} ${y})` },
+            path(petalPath, { fill: petalInk, opacity: 0.82 }),
+          );
+        });
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, {
+              fill: pupilInk,
+              opacity: 0.32,
+            }),
+            ...petals,
+            ellipse(x, y, discRadius * 0.22, discRadius * 0.22, {
+              fill: petalInk,
+            }),
+            ellipse(x, y, discRadius, discRadius, {
+              fill: 'none',
+              stroke: petalInk,
+              strokeWidth: Math.max(1, discRadius * 0.07),
+            }),
+          ),
+        );
+      } else if (iris === 'clock') {
+        // A generic "clockwork eye" motif: tick marks and hands around the
+        // rim, sized off this globe's own extent so it can never spill
+        // outside it.
+        const discRadius = Math.min(width, height) * 0.62;
+        const clockInk = closedEyeColor(pupilInk);
+        const tickCount = 12;
+        const ticks = Array.from({ length: tickCount }, (_, tickIndex) => {
+          const angleDeg = (tickIndex / tickCount) * 360;
+          const long = tickIndex % 3 === 0;
+          const innerR = discRadius * (long ? 0.6 : 0.76);
+          return n(
+            'g',
+            { transform: `rotate(${angleDeg} ${x} ${y})` },
+            path(`M${x} ${y - innerR} L${x} ${y - discRadius * 0.92}`, {
+              stroke: clockInk,
+              strokeWidth: Math.max(1, discRadius * (long ? 0.1 : 0.06)),
+              strokeLinecap: 'round',
+              fill: 'none',
+            }),
+          );
+        });
+        const handPath = `M${x} ${y} L${x} ${y - discRadius * 0.55} M${x} ${y} L${x + discRadius * 0.35} ${y}`;
+        eyeParts.push(
+          pupilGroup(
+            ellipse(x, y, discRadius, discRadius, { fill: pupilInk }),
+            config.depth === 'flat'
+              ? null
+              : ellipse(x, y, discRadius, discRadius, {
+                  fill: '#000000',
+                  opacity: 0.12,
+                  pointerEvents: 'none',
+                }),
+            ...ticks,
+            path(handPath, {
+              stroke: clockInk,
+              strokeWidth: Math.max(1, discRadius * 0.09),
+              strokeLinecap: 'round',
+              fill: 'none',
+            }),
+            ellipse(x, y, discRadius * 0.1, discRadius * 0.1, {
+              fill: clockInk,
+            }),
+            ellipse(x, y, discRadius, discRadius, {
+              fill: 'none',
+              stroke: clockInk,
+              strokeWidth: Math.max(1, discRadius * 0.08),
+            }),
+          ),
+        );
       } else if (iris === 'custom') {
         const scale = Math.min(width, height) * 0.6;
         eyeParts.push(
@@ -609,32 +722,64 @@ export function renderParts(h, config, state = 'idle') {
       `M142 ${browY - 2} Q160 ${browY - 11} 179 ${browY - 5}`,
     ],
   };
+  // 'custom' has no derivable "raised eyebrow" variant, so the thinking
+  // reaction's brow-raise override is skipped for it and the user's drawn
+  // shape stays put.
   const effectiveBrows =
-    thinking && config.brows !== 'none' ? 'thinking' : config.brows;
+    thinking && config.brows !== 'none' && config.brows !== 'custom'
+      ? 'thinking'
+      : config.brows;
+  const browCenterX = [101, 161];
   const brows =
     effectiveBrows === 'none'
       ? null
-      : group(
-          'brows',
-          ...browPaths[effectiveBrows].flatMap((d, i) => [
-            browNeedsOutline || config.browOutlineWidth > 0
-              ? path(d, {
-                  fill: 'none',
-                  stroke: browOutlineStroke,
-                  strokeWidth: browOutlineWidth,
-                  strokeLinecap: 'round',
-                  opacity: 0.9,
-                })
-              : null,
-            path(d, {
-              fill: 'none',
-              stroke: browInk,
-              strokeWidth: 5,
-              strokeLinecap: 'round',
-              'data-brow': i,
+      : effectiveBrows === 'custom'
+        ? group(
+            'brows',
+            ...[0, 1].map((i) => {
+              const side = i ? 'right' : 'left';
+              const points = config.customBrows.symmetric
+                ? config.customBrows.left.points
+                : config.customBrows[side].points;
+              const d = customBrowToPath(
+                points,
+                browCenterX[i],
+                browY,
+                i === 1 && config.customBrows.symmetric,
+              );
+              return path(d, {
+                fill: browInk,
+                ...(config.browOutlineWidth > 0
+                  ? {
+                      stroke: config.browOutlineColor,
+                      strokeWidth: config.browOutlineWidth,
+                    }
+                  : {}),
+                'data-brow': i,
+              });
             }),
-          ]),
-        );
+          )
+        : group(
+            'brows',
+            ...browPaths[effectiveBrows].flatMap((d, i) => [
+              browNeedsOutline || config.browOutlineWidth > 0
+                ? path(d, {
+                    fill: 'none',
+                    stroke: browOutlineStroke,
+                    strokeWidth: browOutlineWidth,
+                    strokeLinecap: 'round',
+                    opacity: 0.9,
+                  })
+                : null,
+              path(d, {
+                fill: 'none',
+                stroke: browInk,
+                strokeWidth: 5,
+                strokeLinecap: 'round',
+                'data-brow': i,
+              }),
+            ]),
+          );
   const noseY = 156 + faceY * 0.65;
   const noseNeedsOutline =
     config.noseColor.toLowerCase() === config.color.toLowerCase();
@@ -781,6 +926,14 @@ export function renderParts(h, config, state = 'idle') {
         opacity: config.noseOutlineWidth > 0 ? 1 : 0.5,
       }),
     );
+  if (config.nose === 'custom')
+    nose = group(
+      'nose',
+      path(customNoseToPath(config.customNose.points, 128, noseY), {
+        fill: config.noseColor,
+        ...noseOutline,
+      }),
+    );
   const noseSpacing =
     config.nose === 'muzzle'
       ? 3
@@ -916,6 +1069,13 @@ export function renderParts(h, config, state = 'idle') {
             strokeLinejoin: 'round',
           },
         ),
+      ];
+    else if (configuredMouth === 'custom')
+      mouthParts = [
+        path(customMouthToPath(config.customMouth.points, 128, mouthY), {
+          fill: mouthInk,
+          ...mouthOutline,
+        }),
       ];
     else
       mouthParts = [
@@ -1179,6 +1339,26 @@ export function renderParts(h, config, state = 'idle') {
             fill: config.accentColor,
             opacity: 0.78,
           }),
+        ),
+      );
+    });
+  if (config.head === 'elf-ears')
+    [0, 1].forEach((i) => {
+      const direction = i ? 1 : -1;
+      const baseX = fit.roundEarX?.[i] ?? headX + direction * (crownHalf - 6);
+      const baseY = Array.isArray(fit.roundEarY)
+        ? fit.roundEarY[i]
+        : (fit.roundEarY ?? headY + 4);
+      const tipX = baseX + direction * 48;
+      const tipY = baseY - 46;
+      const outerPath = `M${baseX - direction * 6} ${baseY + 22} Q${baseX - direction * 15} ${baseY - 8} ${baseX - direction * 2} ${baseY - 30} Q${baseX + direction * 20} ${baseY - 44} ${tipX} ${tipY} Q${tipX + direction * 12} ${tipY + 18} ${baseX + direction * 20} ${baseY - 4} Q${baseX + direction * 23} ${baseY + 16} ${baseX + direction * 9} ${baseY + 27}Z`;
+      const innerPath = `M${baseX + direction * 1} ${baseY + 13} Q${baseX + direction * 8} ${baseY - 7} ${baseX + direction * 17} ${baseY - 22} Q${tipX - direction * 6} ${tipY + 24} ${tipX - direction * 8} ${tipY + 15} Q${baseX + direction * 13} ${baseY - 3} ${baseX + direction * 7} ${baseY + 15}Z`;
+      head.push(
+        group(
+          `elf-ear-${i}`,
+          path(outerPath, { fill: config.headColor, ...headOutline }),
+          depthLayer(outerPath, `elf-ear-${i}`),
+          path(innerPath, { fill: config.accentColor, opacity: 0.85 }),
         ),
       );
     });
@@ -1512,6 +1692,59 @@ export function renderParts(h, config, state = 'idle') {
         ),
       ),
     );
+  if (config.accessory === 'fox-tail') {
+    const baseX = fit.sideRight - 24;
+    const baseY = 196 + faceY * 0.2;
+    const tipX = baseX + 68;
+    const tipY = baseY - 8;
+    const tailPath = `M${baseX} ${baseY} C${baseX + 50} ${baseY + 48} ${baseX + 90} ${baseY + 24} ${tipX} ${tipY}`;
+    accessoriesBehind.push(
+      accessoryOutlineActive
+        ? path(tailPath, {
+            fill: 'none',
+            stroke: config.accessoryOutlineColor,
+            strokeWidth: 28 + config.accessoryOutlineWidth * 2,
+            strokeLinecap: 'round',
+          })
+        : null,
+      path(tailPath, {
+        fill: 'none',
+        stroke: config.accessoryColor,
+        strokeWidth: 28,
+        strokeLinecap: 'round',
+        'data-accessory-piece': 'fox-tail',
+      }),
+      ellipse(tipX, tipY, 14, 12, {
+        fill: config.accentColor,
+        opacity: 0.92,
+        'data-accessory-piece': 'fox-tail-tip',
+      }),
+    );
+  }
+  if (config.accessory === 'cat-tail') {
+    const baseX = fit.sideRight - 20;
+    const baseY = 198 + faceY * 0.2;
+    const tipX = baseX + 44;
+    const tipY = baseY - 46;
+    const tailPath = `M${baseX} ${baseY} C${baseX + 46} ${baseY + 24} ${baseX + 54} ${baseY - 36} ${tipX} ${tipY}`;
+    accessoriesBehind.push(
+      accessoryOutlineActive
+        ? path(tailPath, {
+            fill: 'none',
+            stroke: config.accessoryOutlineColor,
+            strokeWidth: 13 + config.accessoryOutlineWidth * 2,
+            strokeLinecap: 'round',
+          })
+        : null,
+      path(tailPath, {
+        fill: 'none',
+        stroke: config.accessoryColor,
+        strokeWidth: 13,
+        strokeLinecap: 'round',
+        'data-accessory-piece': 'cat-tail',
+      }),
+    );
+  }
   const body = group(
     'body',
     n(

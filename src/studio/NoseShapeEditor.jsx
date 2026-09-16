@@ -1,19 +1,19 @@
 import { useRef, useState } from 'react';
 import { Pencil, Plus, X } from 'lucide-react';
 import {
-  DEFAULT_CUSTOM_HAIR_POINTS,
-  customHairPointCoordinates,
-  customHairToPath,
+  DEFAULT_CUSTOM_NOSE_POINTS,
+  customNosePointCoordinates,
+  customNoseToPath,
   insertPointOnSegment,
   removePointAt,
   scalePoints,
 } from '../../packages/core/custom-shape.js';
 
-const EDITOR_CENTER = 170;
-const EDITOR_SIZE = 340;
+const EDITOR_CENTER = 40;
+const EDITOR_SIZE = 80;
 const MIN_POINTS = 3;
 
-export function CustomHairEditor({
+export function NoseShapeEditor({
   points,
   patch,
   preview,
@@ -48,7 +48,7 @@ export function CustomHairEditor({
     const nextPoints = points.map((value, index) =>
       index === pointIndex ? point : value,
     );
-    notify({ customHair: { points: nextPoints } });
+    notify({ customNose: { points: nextPoints } });
   }
 
   function dragHandlers(pointIndex) {
@@ -75,7 +75,7 @@ export function CustomHairEditor({
         commitPreview();
       },
       onKeyDown: (event) => {
-        const step = event.shiftKey ? 12 : 4;
+        const step = event.shiftKey ? 4 : 1.5;
         const current = points[pointIndex];
         if (event.key === 'ArrowRight') {
           event.preventDefault();
@@ -96,12 +96,12 @@ export function CustomHairEditor({
 
   function handleAddPoint(event) {
     const clicked = localPointFromClient(event.clientX, event.clientY);
-    patch({ customHair: { points: insertPointOnSegment(points, clicked) } });
+    patch({ customNose: { points: insertPointOnSegment(points, clicked) } });
   }
 
   function handleRemovePoint(pointIndex) {
     if (points.length <= MIN_POINTS) return;
-    patch({ customHair: { points: removePointAt(points, pointIndex) } });
+    patch({ customNose: { points: removePointAt(points, pointIndex) } });
   }
 
   function handleScaleInput(event) {
@@ -109,7 +109,7 @@ export function CustomHairEditor({
     setScaleValue(value);
     scaleBaseRef.current ??= points;
     preview({
-      customHair: { points: scalePoints(scaleBaseRef.current, value / 100) },
+      customNose: { points: scalePoints(scaleBaseRef.current, value / 100) },
     });
   }
   function handleScaleCommit() {
@@ -120,12 +120,12 @@ export function CustomHairEditor({
   }
 
   function applySavedShape(savedShape) {
-    patch({ customHair: { points: [...savedShape.points] } });
+    patch({ customNose: { points: [...savedShape.points] } });
     setShapeName('');
   }
 
   function startNewShape() {
-    patch({ customHair: { points: [...DEFAULT_CUSTOM_HAIR_POINTS] } });
+    patch({ customNose: { points: [...DEFAULT_CUSTOM_NOSE_POINTS] } });
     setShapeName('');
   }
 
@@ -145,21 +145,21 @@ export function CustomHairEditor({
     setRenameDraft('');
   }
 
-  const coordinates = customHairPointCoordinates(
+  const coordinates = customNosePointCoordinates(
     points,
     EDITOR_CENTER,
     EDITOR_CENTER,
   );
-  const pathData = customHairToPath(points, EDITOR_CENTER, EDITOR_CENTER);
+  const pathData = customNoseToPath(points, EDITOR_CENTER, EDITOR_CENTER);
 
   return (
-    <div className="shape-editor">
+    <div className="eye-shape-editor">
       <svg
         ref={svgRef}
-        className="shape-editor-canvas"
+        className="shape-editor-canvas eye-shape-editor-canvas"
         viewBox={`0 0 ${EDITOR_SIZE} ${EDITOR_SIZE}`}
         role="group"
-        aria-label="Éditeur de cheveux personnalisés"
+        aria-label="Éditeur de nez personnalisé"
       >
         <path
           d={pathData}
@@ -170,31 +170,31 @@ export function CustomHairEditor({
         {coordinates.map((point, index) => (
           <g key={index} className="shape-editor-point">
             <circle
-              className="shape-editor-handle"
+              className="shape-editor-handle eye-shape-editor-handle"
               tabIndex={0}
               role="button"
               aria-roledescription="point déplaçable"
-              aria-label={`Point ${index + 1} des cheveux — glisser ou flèches pour déplacer`}
+              aria-label={`Point ${index + 1} du nez — glisser ou flèches pour déplacer`}
               cx={point.x}
               cy={point.y}
-              r="9"
+              r="4"
               {...dragHandlers(index)}
             />
             {points.length > MIN_POINTS && (
               <g
-                className="shape-editor-point-remove"
-                transform={`translate(${point.x + 11} ${point.y - 11})`}
+                className="shape-editor-point-remove shape-editor-point-remove-small"
+                transform={`translate(${point.x + 6} ${point.y - 6})`}
                 onClick={() => handleRemovePoint(index)}
               >
                 <circle
                   className="shape-editor-point-remove-hit"
-                  r="7"
+                  r="4.5"
                   role="button"
                   aria-label={`Supprimer le point ${index + 1}`}
                 />
                 <path
                   className="shape-editor-point-remove-mark"
-                  d="M-3 -3 L3 3 M3 -3 L-3 3"
+                  d="M-2 -2 L2 2 M2 -2 L-2 2"
                 />
               </g>
             )}
@@ -209,7 +209,7 @@ export function CustomHairEditor({
           min="50"
           max="200"
           value={scaleValue}
-          aria-label="Échelle uniforme des cheveux"
+          aria-label="Échelle uniforme du nez"
           onInput={handleScaleInput}
           onPointerUp={handleScaleCommit}
           onKeyUp={handleScaleCommit}
@@ -218,16 +218,16 @@ export function CustomHairEditor({
       </label>
       <p className="shape-editor-hint">
         Faites glisser les points librement. Double-cliquez sur le contour pour
-        ajouter un point, survolez un point pour le supprimer. Pas de limite de
-        hauteur ni de largeur : ces cheveux sont dessinés par-dessus le corps.
+        ajouter un point, survolez un point pour le supprimer.
       </p>
+
       <div className="shape-editor-save">
         <label className="shape-editor-save-field">
           <span>Nom de la forme</span>
           <input
             type="text"
             maxLength={40}
-            placeholder="Mes cheveux"
+            placeholder="Mon nez"
             value={shapeName}
             onChange={(event) => setShapeName(event.target.value)}
           />
@@ -243,7 +243,7 @@ export function CustomHairEditor({
       </div>
 
       <div className="shape-editor-library">
-        <h3>Mes cheveux</h3>
+        <h3>Mes nez</h3>
         <div className="shape-editor-library-grid">
           <button
             type="button"
@@ -257,16 +257,9 @@ export function CustomHairEditor({
             renamingId === savedShape.id ? (
               <div className="shape-editor-library-item" key={savedShape.id}>
                 <div className="shape-editor-library-thumb shape-editor-library-renaming">
-                  <svg
-                    viewBox={`0 0 ${EDITOR_SIZE} ${EDITOR_SIZE}`}
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 80 80" aria-hidden="true">
                     <path
-                      d={customHairToPath(
-                        savedShape.points,
-                        EDITOR_CENTER,
-                        EDITOR_CENTER,
-                      )}
+                      d={customNoseToPath(savedShape.points, 40, 40)}
                       className="shape-editor-outline"
                     />
                   </svg>
@@ -295,19 +288,12 @@ export function CustomHairEditor({
                 <button
                   type="button"
                   className="shape-editor-library-thumb"
-                  aria-label={`Utiliser les cheveux ${savedShape.name}`}
+                  aria-label={`Utiliser le nez ${savedShape.name}`}
                   onClick={() => applySavedShape(savedShape)}
                 >
-                  <svg
-                    viewBox={`0 0 ${EDITOR_SIZE} ${EDITOR_SIZE}`}
-                    aria-hidden="true"
-                  >
+                  <svg viewBox="0 0 80 80" aria-hidden="true">
                     <path
-                      d={customHairToPath(
-                        savedShape.points,
-                        EDITOR_CENTER,
-                        EDITOR_CENTER,
-                      )}
+                      d={customNoseToPath(savedShape.points, 40, 40)}
                       className="shape-editor-outline"
                     />
                   </svg>
@@ -316,7 +302,7 @@ export function CustomHairEditor({
                 <button
                   type="button"
                   className="shape-editor-library-rename"
-                  aria-label={`Renommer les cheveux ${savedShape.name}`}
+                  aria-label={`Renommer le nez ${savedShape.name}`}
                   onClick={() => startRename(savedShape)}
                 >
                   <Pencil size={11} aria-hidden="true" />
@@ -324,7 +310,7 @@ export function CustomHairEditor({
                 <button
                   type="button"
                   className="shape-editor-library-delete"
-                  aria-label={`Supprimer les cheveux ${savedShape.name}`}
+                  aria-label={`Supprimer le nez ${savedShape.name}`}
                   onClick={() => deleteShape(savedShape.id)}
                 >
                   <X size={13} aria-hidden="true" />

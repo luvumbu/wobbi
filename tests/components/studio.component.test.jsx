@@ -90,7 +90,7 @@ it('previews white feature colours against the selected body colour', () => {
 it('keeps each face preview focused on the feature being chosen', () => {
   const { container } = render(<App />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 8 nez de plus', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -254,7 +254,7 @@ it('expands and reduces the compact shape, eye and mouth grids', () => {
   );
 
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 5 bouches de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 6 bouches de plus', exact: true }),
   );
   expect(
     screen.getByRole('button', { name: 'Bouche : Deux dents', exact: true }),
@@ -344,7 +344,7 @@ it('offers a lash colour only for eye families that draw lashes', () => {
 it('can collapse a choice grid while an extra option is selected', () => {
   render(<App />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 8 nez de plus', exact: true }),
   );
   fireEvent.click(
     screen.getByRole('button', {
@@ -365,7 +365,7 @@ it('can collapse a choice grid while an extra option is selected', () => {
     }),
   ).toHaveAttribute('aria-pressed', 'true');
   expect(
-    screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
+    screen.getByRole('button', { name: 'Voir 8 nez de plus', exact: true }),
   ).toHaveAttribute('aria-expanded', 'false');
 });
 it.each(['Museau', 'Bec'])(
@@ -376,7 +376,7 @@ it.each(['Museau', 'Bec'])(
       screen.getByRole('button', { name: 'Bouche : Sourire', exact: true }),
     );
     fireEvent.click(
-      screen.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
+      screen.getByRole('button', { name: 'Voir 8 nez de plus', exact: true }),
     );
     fireEvent.click(
       screen.getByRole('button', {
@@ -395,7 +395,7 @@ it.each(['Museau', 'Bec'])(
     ).toBeDisabled();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Voir 5 bouches de plus',
+        name: 'Voir 6 bouches de plus',
         exact: true,
       }),
     );
@@ -437,7 +437,7 @@ it('only offers details compatible with the selected silhouette', () => {
   );
   fireEvent.click(
     screen.getByRole('button', {
-      name: 'Voir 6 accessoires de plus',
+      name: 'Voir 8 accessoires de plus',
       exact: true,
     }),
   );

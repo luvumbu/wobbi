@@ -1,16 +1,8 @@
-function radialPointCoordinates(radii, pointCount, centerX, centerY, mirrorX) {
-  return radii.map((radius, index) => {
-    const angle = (index / pointCount) * Math.PI * 2 - Math.PI / 2;
-    return {
-      x: centerX + Math.cos(angle) * radius * (mirrorX ? -1 : 1),
-      y: centerY + Math.sin(angle) * radius,
-    };
-  });
-}
-
 // Closed Catmull-Rom spline converted to cubic beziers (standard 1/6 tension),
-// so the outline stays smooth and blobby instead of a jagged polygon.
-function radialPointsToPath(points) {
+// so the outline stays smooth and blobby instead of a jagged polygon. Works
+// for any ordered loop of points — the array order IS the loop traversal
+// order (consecutive entries are consecutive perimeter neighbours).
+function pointsToPath(points) {
   const count = points.length;
   let d = `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} `;
   for (let index = 0; index < count; index += 1) {
@@ -27,155 +19,268 @@ function radialPointsToPath(points) {
   return `${d.trim()}Z`;
 }
 
+// The pre-freeform editors stored one radius per point, at a fixed angle
+// implied by its index. Used only to compute pixel-identical defaults and
+// to migrate shapes saved in that old format into free {x,y} points.
+function legacyPolarOffset(index, count, radius) {
+  const angle = (index / count) * Math.PI * 2 - Math.PI / 2;
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+}
+
+// Detects the old bare-number-per-point format and converts it to today's
+// {x,y} offsets, reproducing the exact silhouette it used to render (same
+// angle formula the renderer used to project it). Already-migrated (or
+// freshly drawn) arrays are returned unchanged.
+export function migrateLegacyPointsArray(points) {
+  if (!Array.isArray(points) || points.length === 0) return points;
+  if (typeof points[0] !== 'number') return points;
+  return points.map((radius, index) =>
+    legacyPolarOffset(index, points.length, radius),
+  );
+}
+
+// Scales every point away from/toward the shape's own local origin (0,0) —
+// used by each editor's uniform-scale slider.
+export function scalePoints(points, factor) {
+  return points.map((p) => ({ x: p.x * factor, y: p.y * factor }));
+}
+
+// Nearest point-to-segment distance, used to find where to splice a new
+// point in when the user double-clicks the outline. Approximate against the
+// closed polygon rather than the true Catmull-Rom curve — cheap, and close
+// enough since the curve hugs the polygon closely for typical blob shapes.
+function distanceToSegment(point, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared,
+        ),
+      )
+    : 0;
+  const closestX = a.x + t * dx;
+  const closestY = a.y + t * dy;
+  return Math.hypot(point.x - closestX, point.y - closestY);
+}
+
+// Inserts `point` into `points` at the position between its two nearest
+// perimeter neighbours, keeping the loop's traversal order intact.
+export function insertPointOnSegment(points, point) {
+  const count = points.length;
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+  for (let index = 0; index < count; index += 1) {
+    const distance = distanceToSegment(
+      point,
+      points[index],
+      points[(index + 1) % count],
+    );
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+  const next = [...points];
+  next.splice(bestIndex + 1, 0, point);
+  return next;
+}
+
+// Removes the point at `index`, refusing to go below a closed loop's
+// minimum of 3 points.
+export function removePointAt(points, index) {
+  if (points.length <= 3) return points;
+  return points.filter((_, i) => i !== index);
+}
+
 // --- Custom body shape -------------------------------------------------
 
 export const CUSTOM_SHAPE_POINT_COUNT = 10;
-export const CUSTOM_SHAPE_MIN_RADIUS = 70;
-export const CUSTOM_SHAPE_MAX_RADIUS = 115;
-export const CUSTOM_SHAPE_DEFAULT_RADIUS = 88;
 export const CUSTOM_SHAPE_CENTER = 128;
 
 export const DEFAULT_CUSTOM_SHAPE_POINTS = Array.from(
   { length: CUSTOM_SHAPE_POINT_COUNT },
-  () => CUSTOM_SHAPE_DEFAULT_RADIUS,
+  (_, index) => legacyPolarOffset(index, CUSTOM_SHAPE_POINT_COUNT, 88),
 );
 
-export function customShapeAngle(pointIndex) {
-  return (pointIndex / CUSTOM_SHAPE_POINT_COUNT) * Math.PI * 2 - Math.PI / 2;
+export function customShapePointCoordinates(points) {
+  return points.map((p) => ({
+    x: CUSTOM_SHAPE_CENTER + p.x,
+    y: CUSTOM_SHAPE_CENTER + p.y,
+  }));
 }
 
-export function customShapePointCoordinates(radii) {
-  return radialPointCoordinates(
-    radii,
-    CUSTOM_SHAPE_POINT_COUNT,
-    CUSTOM_SHAPE_CENTER,
-    CUSTOM_SHAPE_CENTER,
-    false,
-  );
-}
-
-export function customShapeToPath(radii) {
-  return radialPointsToPath(customShapePointCoordinates(radii));
+export function customShapeToPath(points) {
+  return pointsToPath(customShapePointCoordinates(points));
 }
 
 // --- Custom eye globe shape ---------------------------------------------
-// Same radial-blob technique as the body shape, but sized for a single eye
+// Same free-point technique as the body shape, but sized for a single eye
 // and centred wherever that eye sits (each eye can even mirror the other).
+// Points are stored as offsets from the eye's own local centre, so the same
+// data plugs into either eye slot unchanged.
 
 export const CUSTOM_EYE_POINT_COUNT = 8;
-export const CUSTOM_EYE_MIN_RADIUS = 8;
-export const CUSTOM_EYE_MAX_RADIUS = 30;
-export const CUSTOM_EYE_DEFAULT_RADIUS = 20;
 
 export const DEFAULT_CUSTOM_EYE_POINTS = Array.from(
   { length: CUSTOM_EYE_POINT_COUNT },
-  () => CUSTOM_EYE_DEFAULT_RADIUS,
+  (_, index) => legacyPolarOffset(index, CUSTOM_EYE_POINT_COUNT, 20),
 );
 
-export function customEyeAngle(pointIndex) {
-  return (pointIndex / CUSTOM_EYE_POINT_COUNT) * Math.PI * 2 - Math.PI / 2;
-}
-
 export function customEyePointCoordinates(
-  radii,
+  points,
   centerX,
   centerY,
   mirrorX = false,
 ) {
-  return radialPointCoordinates(
-    radii,
-    CUSTOM_EYE_POINT_COUNT,
-    centerX,
-    centerY,
-    mirrorX,
+  return points.map((p) => ({
+    x: centerX + p.x * (mirrorX ? -1 : 1),
+    y: centerY + p.y,
+  }));
+}
+
+export function customEyeToPath(points, centerX, centerY, mirrorX = false) {
+  return pointsToPath(
+    customEyePointCoordinates(points, centerX, centerY, mirrorX),
   );
 }
 
-export function customEyeToPath(radii, centerX, centerY, mirrorX = false) {
-  return radialPointsToPath(
-    customEyePointCoordinates(radii, centerX, centerY, mirrorX),
-  );
-}
-
-// Approximate half-width/half-height from the shape's own points (index
-// 0/4 sit north/south, 2/6 sit east/west for the 8-point layout), used to
-// keep the iris safely inside whatever custom globe the user draws.
-export function customEyeExtent(radii) {
+// Half-width/half-height bounding box of the shape's own points (centre-
+// relative), used to keep the iris safely inside whatever custom globe the
+// user draws. Points no longer sit at guaranteed compass positions once
+// they can be freely dragged/added/removed, so this is a bounding-box
+// approximation rather than reading fixed N/E/S/W indices.
+export function customEyeExtent(points) {
   return {
-    width: (radii[2] + radii[6]) / 2,
-    height: (radii[0] + radii[4]) / 2,
+    width: Math.max(...points.map((p) => Math.abs(p.x))),
+    height: Math.max(...points.map((p) => Math.abs(p.y))),
   };
 }
 
 // --- Custom iris shape ---------------------------------------------------
 // The iris/pupil mark sits inside a globe whose own size varies wildly (a
 // tiny "dots" globe vs. a large "classic" one), so its points are stored as
-// ratios of the globe's own half-extent (0..1) rather than absolute pixels.
-// At render time they are scaled by whatever globe currently hosts them,
-// which is what guarantees the iris never spills outside it.
+// ratios of the globe's own half-extent (x and y each independently) rather
+// than absolute pixels. At render time they are scaled by whatever globe
+// currently hosts them.
 
 export const CUSTOM_IRIS_POINT_COUNT = 8;
-export const CUSTOM_IRIS_MIN_RATIO = 0.15;
-export const CUSTOM_IRIS_MAX_RATIO = 1;
-export const CUSTOM_IRIS_DEFAULT_RATIO = 0.62;
 
 export const DEFAULT_CUSTOM_IRIS_POINTS = Array.from(
   { length: CUSTOM_IRIS_POINT_COUNT },
-  () => CUSTOM_IRIS_DEFAULT_RATIO,
+  (_, index) => legacyPolarOffset(index, CUSTOM_IRIS_POINT_COUNT, 0.62),
 );
 
-export function customIrisAngle(pointIndex) {
-  return (pointIndex / CUSTOM_IRIS_POINT_COUNT) * Math.PI * 2 - Math.PI / 2;
+export function customIrisPointCoordinates(points, centerX, centerY, scale) {
+  return points.map((p) => ({
+    x: centerX + p.x * scale,
+    y: centerY + p.y * scale,
+  }));
 }
 
-export function customIrisPointCoordinates(ratios, centerX, centerY, scale) {
-  return radialPointCoordinates(
-    ratios.map((ratio) => ratio * scale),
-    CUSTOM_IRIS_POINT_COUNT,
-    centerX,
-    centerY,
-    false,
-  );
-}
-
-export function customIrisToPath(ratios, centerX, centerY, scale) {
-  return radialPointsToPath(
-    customIrisPointCoordinates(ratios, centerX, centerY, scale),
+export function customIrisToPath(points, centerX, centerY, scale) {
+  return pointsToPath(
+    customIrisPointCoordinates(points, centerX, centerY, scale),
   );
 }
 
 // --- Custom hair shape ----------------------------------------------------
-// Same radial-blob technique as the body shape, but with a much wider
-// radius range and, unlike the preset hairstyles, drawn on top of the body
-// so the user has total freedom over height and width with no risk of it
-// being clipped by the body silhouette.
+// Same free-point technique as the body shape, but with a much wider usual
+// range and, unlike the preset hairstyles, drawn on top of the body so the
+// user has total freedom over height and width with no risk of it being
+// clipped by the body silhouette.
 
 export const CUSTOM_HAIR_POINT_COUNT = 10;
-export const CUSTOM_HAIR_MIN_RADIUS = 4;
-export const CUSTOM_HAIR_MAX_RADIUS = 150;
-export const CUSTOM_HAIR_DEFAULT_RADIUS = 40;
 
 export const DEFAULT_CUSTOM_HAIR_POINTS = Array.from(
   { length: CUSTOM_HAIR_POINT_COUNT },
-  () => CUSTOM_HAIR_DEFAULT_RADIUS,
+  (_, index) => legacyPolarOffset(index, CUSTOM_HAIR_POINT_COUNT, 40),
 );
 
-export function customHairAngle(pointIndex) {
-  return (pointIndex / CUSTOM_HAIR_POINT_COUNT) * Math.PI * 2 - Math.PI / 2;
+export function customHairPointCoordinates(points, centerX, centerY) {
+  return points.map((p) => ({
+    x: centerX + p.x,
+    y: centerY + p.y,
+  }));
 }
 
-export function customHairPointCoordinates(radii, centerX, centerY) {
-  return radialPointCoordinates(
-    radii,
-    CUSTOM_HAIR_POINT_COUNT,
-    centerX,
-    centerY,
-    false,
+export function customHairToPath(points, centerX, centerY) {
+  return pointsToPath(customHairPointCoordinates(points, centerX, centerY));
+}
+
+// --- Custom nose shape -----------------------------------------------------
+// A single free-point blob centred on the nose's own anchor point, same
+// technique as the body shape.
+
+export const CUSTOM_NOSE_POINT_COUNT = 8;
+
+export const DEFAULT_CUSTOM_NOSE_POINTS = Array.from(
+  { length: CUSTOM_NOSE_POINT_COUNT },
+  (_, index) => legacyPolarOffset(index, CUSTOM_NOSE_POINT_COUNT, 8),
+);
+
+export function customNosePointCoordinates(points, centerX, centerY) {
+  return points.map((p) => ({
+    x: centerX + p.x,
+    y: centerY + p.y,
+  }));
+}
+
+export function customNoseToPath(points, centerX, centerY) {
+  return pointsToPath(customNosePointCoordinates(points, centerX, centerY));
+}
+
+// --- Custom brow shape ------------------------------------------------------
+// Same free-point technique as the eye globe: a small blob per side, stored
+// relative to its own local centre so it can be re-centred (and mirrored)
+// over either eyebrow at render time.
+
+export const CUSTOM_BROW_POINT_COUNT = 8;
+
+export const DEFAULT_CUSTOM_BROW_POINTS = Array.from(
+  { length: CUSTOM_BROW_POINT_COUNT },
+  (_, index) => legacyPolarOffset(index, CUSTOM_BROW_POINT_COUNT, 14),
+);
+
+export function customBrowPointCoordinates(
+  points,
+  centerX,
+  centerY,
+  mirrorX = false,
+) {
+  return points.map((p) => ({
+    x: centerX + p.x * (mirrorX ? -1 : 1),
+    y: centerY + p.y,
+  }));
+}
+
+export function customBrowToPath(points, centerX, centerY, mirrorX = false) {
+  return pointsToPath(
+    customBrowPointCoordinates(points, centerX, centerY, mirrorX),
   );
 }
 
-export function customHairToPath(radii, centerX, centerY) {
-  return radialPointsToPath(
-    customHairPointCoordinates(radii, centerX, centerY),
-  );
+// --- Custom mouth shape ------------------------------------------------------
+// A single free-point blob centred on the mouth's own anchor point, same
+// technique as the body shape.
+
+export const CUSTOM_MOUTH_POINT_COUNT = 8;
+
+export const DEFAULT_CUSTOM_MOUTH_POINTS = Array.from(
+  { length: CUSTOM_MOUTH_POINT_COUNT },
+  (_, index) => legacyPolarOffset(index, CUSTOM_MOUTH_POINT_COUNT, 10),
+);
+
+export function customMouthPointCoordinates(points, centerX, centerY) {
+  return points.map((p) => ({
+    x: centerX + p.x,
+    y: centerY + p.y,
+  }));
+}
+
+export function customMouthToPath(points, centerX, centerY) {
+  return pointsToPath(customMouthPointCoordinates(points, centerX, centerY));
 }

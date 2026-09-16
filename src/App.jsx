@@ -139,7 +139,7 @@ export default function App() {
           }}
         >
           <img
-            src="/brand/wobbi-wordmark.png"
+            src={`${import.meta.env.BASE_URL}brand/wobbi-wordmark.png`}
             alt="Wobbi"
             width="188"
             height="70"

@@ -1,3 +1,4 @@
+import { migrateLegacyPointsArray } from '../../packages/core/custom-shape.js';
 import { useNamedShapeLibrary } from './useNamedShapeLibrary.js';
 
 const STORAGE_KEY = 'wobbi.customShapes.v1';
@@ -14,5 +15,13 @@ export function useCustomShapeLibrary() {
     return saveEntry(name, { points });
   }
 
-  return { savedShapes, saveShape, deleteShape, renameShape };
+  return {
+    savedShapes: savedShapes.map((entry) => ({
+      ...entry,
+      points: migrateLegacyPointsArray(entry.points),
+    })),
+    saveShape,
+    deleteShape,
+    renameShape,
+  };
 }

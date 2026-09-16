@@ -18,15 +18,21 @@ import { ColorPicker, Swatches } from './ColorPicker.jsx';
 import { DisclosurePanel } from './Disclosure.jsx';
 import { RandomizeButton } from './RandomizeButton.jsx';
 import { SettingsPanel } from './SettingsPanel.jsx';
+import { BrowShapeEditor } from './BrowShapeEditor.jsx';
 import { CustomHairEditor } from './CustomHairEditor.jsx';
 import { EyeShapeEditor } from './EyeShapeEditor.jsx';
 import { IrisShapeEditor } from './IrisShapeEditor.jsx';
+import { MouthShapeEditor } from './MouthShapeEditor.jsx';
+import { NoseShapeEditor } from './NoseShapeEditor.jsx';
 import { ShapeEditor } from './ShapeEditor.jsx';
 import { SpinToggleButton } from './SpinToggleButton.jsx';
 import { pickRandomValue } from './randomize.js';
+import { useCustomBrowsLibrary } from './useCustomBrowsLibrary.js';
 import { useCustomEyeShapeLibrary } from './useCustomEyeShapeLibrary.js';
 import { useCustomHairLibrary } from './useCustomHairLibrary.js';
 import { useCustomIrisLibrary } from './useCustomIrisLibrary.js';
+import { useCustomMouthLibrary } from './useCustomMouthLibrary.js';
+import { useCustomNoseLibrary } from './useCustomNoseLibrary.js';
 import { useCustomShapeLibrary } from './useCustomShapeLibrary.js';
 import {
   accessoryLabels,
@@ -152,6 +158,24 @@ export function CustomizePanel({
     deleteShape: deleteHairShape,
     renameShape: renameHairShape,
   } = useCustomHairLibrary();
+  const {
+    savedShapes: savedNoseShapes,
+    saveShape: saveNoseShape,
+    deleteShape: deleteNoseShape,
+    renameShape: renameNoseShape,
+  } = useCustomNoseLibrary();
+  const {
+    savedShapes: savedBrowShapes,
+    saveShape: saveBrowShape,
+    deleteShape: deleteBrowShape,
+    renameShape: renameBrowShape,
+  } = useCustomBrowsLibrary();
+  const {
+    savedShapes: savedMouthShapes,
+    saveShape: saveMouthShape,
+    deleteShape: deleteMouthShape,
+    renameShape: renameMouthShape,
+  } = useCustomMouthLibrary();
   const hasLashes = LASHED_EYES.includes(config.eyes);
   const irisExtraTiles = savedIrisShapes.map((savedShape) => ({
     key: savedShape.id,
@@ -626,6 +650,18 @@ export function CustomizePanel({
             }
             headerPanel={quickColorPanel('nose', 'noseColor', 'Couleur du nez')}
           >
+            {config.nose === 'custom' && (
+              <NoseShapeEditor
+                points={config.customNose.points}
+                patch={patch}
+                preview={preview}
+                commitPreview={commitPreview}
+                savedShapes={savedNoseShapes}
+                saveShape={saveNoseShape}
+                deleteShape={deleteNoseShape}
+                renameShape={renameNoseShape}
+              />
+            )}
             <AppearanceDisclosure title="Apparence du nez">
               <InlineColorControl
                 colorKey="noseColor"
@@ -681,6 +717,18 @@ export function CustomizePanel({
               'Couleur des sourcils',
             )}
           >
+            {config.brows === 'custom' && (
+              <BrowShapeEditor
+                customBrows={config.customBrows}
+                patch={patch}
+                preview={preview}
+                commitPreview={commitPreview}
+                savedShapes={savedBrowShapes}
+                saveShape={saveBrowShape}
+                deleteShape={deleteBrowShape}
+                renameShape={renameBrowShape}
+              />
+            )}
             <AppearanceDisclosure title="Apparence des sourcils">
               <InlineColorControl
                 colorKey="browColor"
@@ -739,6 +787,18 @@ export function CustomizePanel({
               'Couleur de la bouche',
             )}
           >
+            {config.mouth === 'custom' && (
+              <MouthShapeEditor
+                points={config.customMouth.points}
+                patch={patch}
+                preview={preview}
+                commitPreview={commitPreview}
+                savedShapes={savedMouthShapes}
+                saveShape={saveMouthShape}
+                deleteShape={deleteMouthShape}
+                renameShape={renameMouthShape}
+              />
+            )}
             <AppearanceDisclosure title="Apparence de la bouche">
               <InlineColorControl
                 colorKey="mouthColor"

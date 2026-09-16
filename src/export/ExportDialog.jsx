@@ -89,13 +89,15 @@ async function copyText(value) {
   textarea.remove();
 }
 
+const BRAND_URL = import.meta.env.BASE_URL + 'brand/';
+
 function fileIcon(filename) {
-  if (filename.endsWith('.jsx')) return '/brand/react.svg';
-  if (filename.endsWith('.vue')) return '/brand/vue.svg';
-  if (filename.endsWith('.html')) return '/brand/html.svg';
-  if (filename.endsWith('.css')) return '/brand/css.svg';
-  if (filename.endsWith('.js')) return '/brand/javascript.svg';
-  return '/brand/document.svg';
+  if (filename.endsWith('.jsx')) return `${BRAND_URL}react.svg`;
+  if (filename.endsWith('.vue')) return `${BRAND_URL}vue.svg`;
+  if (filename.endsWith('.html')) return `${BRAND_URL}html.svg`;
+  if (filename.endsWith('.css')) return `${BRAND_URL}css.svg`;
+  if (filename.endsWith('.js')) return `${BRAND_URL}javascript.svg`;
+  return `${BRAND_URL}document.svg`;
 }
 
 export function ExportDialog({ config, onClose, notify }) {
@@ -296,9 +298,9 @@ export function ExportDialog({ config, onClose, notify }) {
   const formats =
     kind === 'code'
       ? [
-          ['react', 'React', '/brand/react.svg'],
-          ['vue', 'Vue.js', '/brand/vue.svg'],
-          ['javascript', 'JavaScript', '/brand/javascript.svg'],
+          ['react', 'React', `${BRAND_URL}react.svg`],
+          ['vue', 'Vue.js', `${BRAND_URL}vue.svg`],
+          ['javascript', 'JavaScript', `${BRAND_URL}javascript.svg`],
         ]
       : kind === 'image'
         ? [

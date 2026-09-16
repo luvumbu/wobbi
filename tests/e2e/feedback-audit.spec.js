@@ -146,7 +146,7 @@ test('keeps the shape grid compact and collapses an extra selection', async ({
   ).toBeVisible();
 
   await page
-    .getByRole('button', { name: 'Voir 7 nez de plus', exact: true })
+    .getByRole('button', { name: 'Voir 8 nez de plus', exact: true })
     .click();
   await page
     .getByRole('button', {
@@ -160,7 +160,7 @@ test('keeps the shape grid compact and collapses an extra selection', async ({
   });
   await reduceNoses.click();
   await expect(
-    page.getByRole('button', { name: 'Voir 7 nez de plus', exact: true }),
+    page.getByRole('button', { name: 'Voir 8 nez de plus', exact: true }),
   ).toHaveAttribute('aria-expanded', 'false');
   await expect(
     page.getByRole('button', {
@@ -260,6 +260,7 @@ test('fits oval face accessories and excludes square ears', async ({
     'Oreilles de lapin',
     'Oreilles de chat',
     'Oreilles rondes',
+    'Oreilles d’elfe',
   ])
     await expect(
       page.getByRole('button', { name: `Oreilles : ${label}`, exact: true }),

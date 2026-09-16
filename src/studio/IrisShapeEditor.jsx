@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
 import { Pencil, Plus, X } from 'lucide-react';
 import {
-  CUSTOM_IRIS_MAX_RATIO,
-  CUSTOM_IRIS_MIN_RATIO,
   DEFAULT_CUSTOM_IRIS_POINTS,
-  customIrisAngle,
   customIrisPointCoordinates,
   customIrisToPath,
+  insertPointOnSegment,
+  removePointAt,
+  scalePoints,
 } from '../../packages/core/custom-shape.js';
 
 const EDITOR_CENTER = 40;
@@ -15,6 +15,7 @@ const EDITOR_SIZE = 80;
 // dragging; the actual render always rescales points to whatever globe
 // hosts the iris, so this is purely an editing convenience.
 const EDITOR_SCALE = 34;
+const MIN_POINTS = 3;
 
 function defaultCustomIris() {
   return { points: [...DEFAULT_CUSTOM_IRIS_POINTS] };
@@ -31,35 +32,30 @@ export function IrisShapeEditor({
   renameShape,
 }) {
   const svgRef = useRef(null);
+  const scaleBaseRef = useRef(null);
+  const [scaleValue, setScaleValue] = useState(100);
   const [shapeName, setShapeName] = useState('');
   const [renamingId, setRenamingId] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
   const points = customIris.points;
 
-  function ratioFromPointerEvent(event, pointIndex) {
+  function localPointFromClient(clientX, clientY) {
     const svg = svgRef.current;
     const pointerPoint = svg.createSVGPoint();
-    pointerPoint.x = event.clientX;
-    pointerPoint.y = event.clientY;
+    pointerPoint.x = clientX;
+    pointerPoint.y = clientY;
     const userSpacePoint = pointerPoint.matrixTransform(
       svg.getScreenCTM().inverse(),
     );
-    const angle = customIrisAngle(pointIndex);
-    const directionX = Math.cos(angle);
-    const directionY = Math.sin(angle);
-    const radius =
-      (userSpacePoint.x - EDITOR_CENTER) * directionX +
-      (userSpacePoint.y - EDITOR_CENTER) * directionY;
-    const ratio = radius / EDITOR_SCALE;
-    return Math.min(
-      CUSTOM_IRIS_MAX_RATIO,
-      Math.max(CUSTOM_IRIS_MIN_RATIO, ratio),
-    );
+    return {
+      x: (userSpacePoint.x - EDITOR_CENTER) / EDITOR_SCALE,
+      y: (userSpacePoint.y - EDITOR_CENTER) / EDITOR_SCALE,
+    };
   }
 
-  function updatePoint(pointIndex, ratio, notify) {
+  function updatePoint(pointIndex, point, notify) {
     const nextPoints = points.map((value, index) =>
-      index === pointIndex ? ratio : value,
+      index === pointIndex ? point : value,
     );
     notify({ customIris: { points: nextPoints } });
   }
@@ -70,7 +66,7 @@ export function IrisShapeEditor({
         event.currentTarget.setPointerCapture(event.pointerId);
         updatePoint(
           pointIndex,
-          ratioFromPointerEvent(event, pointIndex),
+          localPointFromClient(event.clientX, event.clientY),
           preview,
         );
       },
@@ -78,7 +74,7 @@ export function IrisShapeEditor({
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
         updatePoint(
           pointIndex,
-          ratioFromPointerEvent(event, pointIndex),
+          localPointFromClient(event.clientX, event.clientY),
           preview,
         );
       },
@@ -89,23 +85,47 @@ export function IrisShapeEditor({
       },
       onKeyDown: (event) => {
         const step = event.shiftKey ? 0.12 : 0.04;
-        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+        const current = points[pointIndex];
+        if (event.key === 'ArrowRight') {
           event.preventDefault();
-          updatePoint(
-            pointIndex,
-            Math.min(CUSTOM_IRIS_MAX_RATIO, points[pointIndex] + step),
-            patch,
-          );
-        } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+          updatePoint(pointIndex, { x: current.x + step, y: current.y }, patch);
+        } else if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          updatePoint(
-            pointIndex,
-            Math.max(CUSTOM_IRIS_MIN_RATIO, points[pointIndex] - step),
-            patch,
-          );
+          updatePoint(pointIndex, { x: current.x - step, y: current.y }, patch);
+        } else if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          updatePoint(pointIndex, { x: current.x, y: current.y + step }, patch);
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          updatePoint(pointIndex, { x: current.x, y: current.y - step }, patch);
         }
       },
     };
+  }
+
+  function handleAddPoint(event) {
+    const clicked = localPointFromClient(event.clientX, event.clientY);
+    patch({ customIris: { points: insertPointOnSegment(points, clicked) } });
+  }
+
+  function handleRemovePoint(pointIndex) {
+    if (points.length <= MIN_POINTS) return;
+    patch({ customIris: { points: removePointAt(points, pointIndex) } });
+  }
+
+  function handleScaleInput(event) {
+    const value = Number(event.target.value);
+    setScaleValue(value);
+    scaleBaseRef.current ??= points;
+    preview({
+      customIris: { points: scalePoints(scaleBaseRef.current, value / 100) },
+    });
+  }
+  function handleScaleCommit() {
+    if (!scaleBaseRef.current) return;
+    scaleBaseRef.current = null;
+    setScaleValue(100);
+    commitPreview();
   }
 
   function applySavedShape(savedShape) {
@@ -156,27 +176,65 @@ export function IrisShapeEditor({
         role="group"
         aria-label="Éditeur de forme d’iris"
       >
+        <path
+          d={pathData}
+          className="shape-editor-outline-hit"
+          onDoubleClick={handleAddPoint}
+        />
         <path d={pathData} className="shape-editor-outline" />
         {coordinates.map((point, index) => (
-          <circle
-            key={index}
-            className="shape-editor-handle eye-shape-editor-handle"
-            tabIndex={0}
-            role="slider"
-            aria-label={`Point ${index + 1} de la forme d’iris`}
-            aria-valuemin={CUSTOM_IRIS_MIN_RATIO}
-            aria-valuemax={CUSTOM_IRIS_MAX_RATIO}
-            aria-valuenow={Number(points[index].toFixed(2))}
-            cx={point.x}
-            cy={point.y}
-            r="4"
-            {...dragHandlers(index)}
-          />
+          <g key={index} className="shape-editor-point">
+            <circle
+              className="shape-editor-handle eye-shape-editor-handle"
+              tabIndex={0}
+              role="button"
+              aria-roledescription="point déplaçable"
+              aria-label={`Point ${index + 1} de la forme d’iris — glisser ou flèches pour déplacer`}
+              cx={point.x}
+              cy={point.y}
+              r="4"
+              {...dragHandlers(index)}
+            />
+            {points.length > MIN_POINTS && (
+              <g
+                className="shape-editor-point-remove shape-editor-point-remove-small"
+                transform={`translate(${point.x + 6} ${point.y - 6})`}
+                onClick={() => handleRemovePoint(index)}
+              >
+                <circle
+                  className="shape-editor-point-remove-hit"
+                  r="4.5"
+                  role="button"
+                  aria-label={`Supprimer le point ${index + 1}`}
+                />
+                <path
+                  className="shape-editor-point-remove-mark"
+                  d="M-2 -2 L2 2 M2 -2 L-2 2"
+                />
+              </g>
+            )}
+          </g>
         ))}
       </svg>
+      <label className="thickness-control shape-editor-scale">
+        <span>Échelle</span>
+        <output>{scaleValue}%</output>
+        <input
+          type="range"
+          min="50"
+          max="200"
+          value={scaleValue}
+          aria-label="Échelle uniforme de la forme d’iris"
+          onInput={handleScaleInput}
+          onPointerUp={handleScaleCommit}
+          onKeyUp={handleScaleCommit}
+          onChange={() => {}}
+        />
+      </label>
       <p className="shape-editor-hint">
-        Faites glisser les points. La forme s’adapte toujours à la taille du
-        globe de l’œil choisi, elle ne peut pas en sortir.
+        Faites glisser les points librement, sans limite. Double-cliquez sur le
+        contour pour ajouter un point, survolez un point pour le supprimer. La
+        forme se redimensionne toujours avec le globe de l’œil choisi.
       </p>
 
       <div className="shape-editor-save">

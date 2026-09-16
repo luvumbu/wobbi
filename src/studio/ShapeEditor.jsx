@@ -2,18 +2,19 @@ import { useRef, useState } from 'react';
 import { Pencil, Plus, X } from 'lucide-react';
 import {
   CUSTOM_SHAPE_CENTER,
-  CUSTOM_SHAPE_MAX_RADIUS,
-  CUSTOM_SHAPE_MIN_RADIUS,
   DEFAULT_CUSTOM_SHAPE_POINTS,
-  customShapeAngle,
   customShapePointCoordinates,
   customShapeToPath,
+  insertPointOnSegment,
+  removePointAt,
+  scalePoints,
 } from '../../packages/core/custom-shape.js';
 
 const EYE_MARKERS = [
   { x: 102, y: 123 },
   { x: 160, y: 123 },
 ];
+const MIN_POINTS = 3;
 
 export function ShapeEditor({
   points,
@@ -26,33 +27,29 @@ export function ShapeEditor({
   renameShape,
 }) {
   const svgRef = useRef(null);
+  const scaleBaseRef = useRef(null);
+  const [scaleValue, setScaleValue] = useState(100);
   const [shapeName, setShapeName] = useState('');
   const [renamingId, setRenamingId] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
 
-  function radiusFromPointerEvent(event, pointIndex) {
+  function localPointFromClient(clientX, clientY) {
     const svg = svgRef.current;
     const pointerPoint = svg.createSVGPoint();
-    pointerPoint.x = event.clientX;
-    pointerPoint.y = event.clientY;
+    pointerPoint.x = clientX;
+    pointerPoint.y = clientY;
     const userSpacePoint = pointerPoint.matrixTransform(
       svg.getScreenCTM().inverse(),
     );
-    const angle = customShapeAngle(pointIndex);
-    const directionX = Math.cos(angle);
-    const directionY = Math.sin(angle);
-    const radius =
-      (userSpacePoint.x - CUSTOM_SHAPE_CENTER) * directionX +
-      (userSpacePoint.y - CUSTOM_SHAPE_CENTER) * directionY;
-    return Math.min(
-      CUSTOM_SHAPE_MAX_RADIUS,
-      Math.max(CUSTOM_SHAPE_MIN_RADIUS, radius),
-    );
+    return {
+      x: userSpacePoint.x - CUSTOM_SHAPE_CENTER,
+      y: userSpacePoint.y - CUSTOM_SHAPE_CENTER,
+    };
   }
 
-  function updatePoint(pointIndex, radius, notify) {
+  function updatePoint(pointIndex, point, notify) {
     const nextPoints = points.map((value, index) =>
-      index === pointIndex ? radius : value,
+      index === pointIndex ? point : value,
     );
     notify({ customShape: { points: nextPoints } });
   }
@@ -63,7 +60,7 @@ export function ShapeEditor({
         event.currentTarget.setPointerCapture(event.pointerId);
         updatePoint(
           pointIndex,
-          radiusFromPointerEvent(event, pointIndex),
+          localPointFromClient(event.clientX, event.clientY),
           preview,
         );
       },
@@ -71,7 +68,7 @@ export function ShapeEditor({
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
         updatePoint(
           pointIndex,
-          radiusFromPointerEvent(event, pointIndex),
+          localPointFromClient(event.clientX, event.clientY),
           preview,
         );
       },
@@ -82,23 +79,51 @@ export function ShapeEditor({
       },
       onKeyDown: (event) => {
         const step = event.shiftKey ? 10 : 4;
-        if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+        const current = points[pointIndex];
+        if (event.key === 'ArrowRight') {
           event.preventDefault();
-          updatePoint(
-            pointIndex,
-            Math.min(CUSTOM_SHAPE_MAX_RADIUS, points[pointIndex] + step),
-            patch,
-          );
-        } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+          updatePoint(pointIndex, { x: current.x + step, y: current.y }, patch);
+        } else if (event.key === 'ArrowLeft') {
           event.preventDefault();
-          updatePoint(
-            pointIndex,
-            Math.max(CUSTOM_SHAPE_MIN_RADIUS, points[pointIndex] - step),
-            patch,
-          );
+          updatePoint(pointIndex, { x: current.x - step, y: current.y }, patch);
+        } else if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          updatePoint(pointIndex, { x: current.x, y: current.y + step }, patch);
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          updatePoint(pointIndex, { x: current.x, y: current.y - step }, patch);
         }
       },
     };
+  }
+
+  function handleAddPoint(event) {
+    const clicked = localPointFromClient(event.clientX, event.clientY);
+    patch({ customShape: { points: insertPointOnSegment(points, clicked) } });
+  }
+
+  function handleRemovePoint(pointIndex) {
+    if (points.length <= MIN_POINTS) return;
+    patch({ customShape: { points: removePointAt(points, pointIndex) } });
+  }
+
+  // Pointer capture mirrors the point-drag handlers above (proven reliable,
+  // unlike React's onChange which — for range inputs — actually fires on
+  // every tick rather than only on release). onKeyUp covers keyboard-only
+  // adjustment, which never fires a pointer event at all.
+  function handleScaleInput(event) {
+    const value = Number(event.target.value);
+    setScaleValue(value);
+    scaleBaseRef.current ??= points;
+    preview({
+      customShape: { points: scalePoints(scaleBaseRef.current, value / 100) },
+    });
+  }
+  function handleScaleCommit() {
+    if (!scaleBaseRef.current) return;
+    scaleBaseRef.current = null;
+    setScaleValue(100);
+    commitPreview();
   }
 
   function applySavedShape(savedShape) {
@@ -139,6 +164,11 @@ export function ShapeEditor({
         role="group"
         aria-label="Éditeur de forme personnalisée"
       >
+        <path
+          d={pathData}
+          className="shape-editor-outline-hit"
+          onDoubleClick={handleAddPoint}
+        />
         <path d={pathData} className="shape-editor-outline" />
         {EYE_MARKERS.map((marker, index) => (
           <circle
@@ -150,25 +180,59 @@ export function ShapeEditor({
           />
         ))}
         {coordinates.map((point, index) => (
-          <circle
-            key={index}
-            className="shape-editor-handle"
-            tabIndex={0}
-            role="slider"
-            aria-label={`Point ${index + 1} de la forme`}
-            aria-valuemin={CUSTOM_SHAPE_MIN_RADIUS}
-            aria-valuemax={CUSTOM_SHAPE_MAX_RADIUS}
-            aria-valuenow={Math.round(points[index])}
-            cx={point.x}
-            cy={point.y}
-            r="9"
-            {...dragHandlers(index)}
-          />
+          <g key={index} className="shape-editor-point">
+            <circle
+              className="shape-editor-handle"
+              tabIndex={0}
+              role="button"
+              aria-roledescription="point déplaçable"
+              aria-label={`Point ${index + 1} de la forme — glisser ou flèches pour déplacer`}
+              cx={point.x}
+              cy={point.y}
+              r="9"
+              {...dragHandlers(index)}
+            />
+            {points.length > MIN_POINTS && (
+              <g
+                className="shape-editor-point-remove"
+                transform={`translate(${point.x + 11} ${point.y - 11})`}
+                onClick={() => handleRemovePoint(index)}
+              >
+                <circle
+                  className="shape-editor-point-remove-hit"
+                  r="7"
+                  role="button"
+                  aria-label={`Supprimer le point ${index + 1}`}
+                />
+                <path
+                  className="shape-editor-point-remove-mark"
+                  d="M-3 -3 L3 3 M3 -3 L-3 3"
+                />
+              </g>
+            )}
+          </g>
         ))}
       </svg>
+      <label className="thickness-control shape-editor-scale">
+        <span>Échelle</span>
+        <output>{scaleValue}%</output>
+        <input
+          type="range"
+          min="50"
+          max="200"
+          value={scaleValue}
+          aria-label="Échelle uniforme de la forme"
+          onInput={handleScaleInput}
+          onPointerUp={handleScaleCommit}
+          onKeyUp={handleScaleCommit}
+          onChange={() => {}}
+        />
+      </label>
       <p className="shape-editor-hint">
-        Faites glisser les points. Les repères blancs marquent les yeux : évitez
-        de trop resserrer la forme à cet endroit.
+        Faites glisser les points librement. Double-cliquez sur le contour pour
+        ajouter un point, survolez un point pour le supprimer. Les repères
+        blancs marquent les yeux : évitez de trop resserrer la forme à cet
+        endroit.
       </p>
       <div className="shape-editor-save">
         <label className="shape-editor-save-field">

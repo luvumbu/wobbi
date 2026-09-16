@@ -6,6 +6,7 @@ export default [
   {
     ignores: [
       'dist/**',
+      'dist-xampp/**',
       'node_modules/**',
       'test-results/**',
       'playwright-report/**',

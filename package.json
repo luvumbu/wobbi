@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "build:xampp": "vite build --base=./ --outDir dist-xampp",
     "preview": "vite preview --host 127.0.0.1",
     "test:unit": "vitest run tests/unit",
     "test:components": "vitest run tests/components",

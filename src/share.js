@@ -1,4 +1,5 @@
 import { createConfig, validateConfig } from '../packages/core/config.js';
+import { migrateLegacyCustomShapes } from './legacy-shapes.js';
 
 const HASH_PARAM_NAME = 'w';
 
@@ -37,7 +38,9 @@ export function configFromShareHash(urlHash) {
   ).get(HASH_PARAM_NAME);
   if (!encodedConfig) return null;
   try {
-    const parsedConfig = JSON.parse(decodeBase64UrlToPlainText(encodedConfig));
+    const parsedConfig = migrateLegacyCustomShapes(
+      JSON.parse(decodeBase64UrlToPlainText(encodedConfig)),
+    );
     if (validateConfig(parsedConfig).length) return null;
     return createConfig(parsedConfig);
   } catch {
